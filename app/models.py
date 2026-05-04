@@ -93,7 +93,7 @@ class Task(Base):
     description = Column(Text, nullable=True)
     priority = Column(String, default="medium")  # low, medium, high, critical
     deadline = Column(DateTime, nullable=True)
-    status = Column(String, default="open")  # open, assigned, in_progress, completed, delayed
+    status = Column(String, default="open")  # open, assigned, in_progress, completed, delayed, manual_review
     estimated_effort = Column(Float, default=0.2)  # 0.0 - 1.0
 
     created_at = Column(DateTime, default=datetime.utcnow)

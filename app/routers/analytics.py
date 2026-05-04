@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app.services.taxonomy import get_taxonomy_summary
+from app.services.reminder_service import run_deadline_check
 
 from app.database import get_db
 from app import models
@@ -76,3 +78,21 @@ def get_conflict_resolution_suggestions(
         raise HTTPException(status_code=404, detail="Project not found")
 
     return suggest_conflict_resolution(project_id, db)
+
+@router.get("/taxonomy")
+def get_taxonomy():
+    """
+    Return the skill taxonomy and role ontology used by the allocation logic.
+    This endpoint supports the explainability of the complex functionality.
+    """
+    return get_taxonomy_summary()
+
+@router.post("/deadline-check")
+def run_deadline_check_manually(db: Session = Depends(get_db)):
+    """
+    Manually run the deadline reminder and overdue task check.
+
+    This endpoint is useful for testing the third-party APScheduler-based
+    reminder functionality through Swagger.
+    """
+    return run_deadline_check(db)
