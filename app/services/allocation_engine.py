@@ -18,6 +18,23 @@ from app.services.taxonomy import explain_taxonomy_match
 
 MINIMUM_ACCEPTABLE_SCORE = 0.5
 
+def close_existing_active_assignments(task_id: int, db: Session):
+    """
+    Close previous active assignments for a task before creating a new one.
+
+    Business rule:
+    one task should have only one active assignment at a time.
+    """
+    active_assignments = db.query(models.Assignment).filter(
+        models.Assignment.task_id == task_id,
+        models.Assignment.status == "active",
+    ).all()
+
+    for assignment in active_assignments:
+        assignment.status = "reassigned"
+
+    return active_assignments
+
 
 def find_best_team_member_for_task(task_id: int, db: Session):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
@@ -112,6 +129,11 @@ def automatically_allocate_task(task_id: int, db: Session):
             "assignment": None,
             "candidate_scores": candidate_scores
         }
+    
+    closed_assignments = close_existing_active_assignments(
+        task_id=task.id,
+        db=db,
+    )
 
     assignment = models.Assignment(
         task_id=task.id,
@@ -146,6 +168,7 @@ def automatically_allocate_task(task_id: int, db: Session):
     return {
         "success": True,
         "message": "Task automatically allocated successfully",
+        "closed_previous_active_assignments": len(closed_assignments),
         "assignment": {
             "id": assignment.id,
             "task_id": assignment.task_id,

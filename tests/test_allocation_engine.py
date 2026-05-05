@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
 from app import models
-from app.services.allocation_engine import find_best_team_member_for_task
-
+from app.services.allocation_engine import (
+    find_best_team_member_for_task,
+    automatically_allocate_task,
+)
 
 class FakeQuery:
     """
@@ -23,7 +25,7 @@ class FakeQuery:
 
     def all(self):
         if isinstance(self.data, list):
-            return self.data
+            return list(self.data)
         return [self.data]
 
 
@@ -32,9 +34,12 @@ class FakeDB:
     Fake database session for unit testing.
     """
 
-    def __init__(self, task, team_members):
+    def __init__(self, task, team_members, assignments=None):
         self.task = task
         self.team_members = team_members
+        self.assignments = assignments or []
+        self.added_objects = []
+        self.committed = False
 
     def query(self, model):
         if model == models.Task:
@@ -43,7 +48,24 @@ class FakeDB:
         if model == models.TeamMember:
             return FakeQuery(self.team_members)
 
+        if model == models.Assignment:
+            return FakeQuery(self.assignments)
+
         return FakeQuery([])
+
+    def add(self, obj):
+        self.added_objects.append(obj)
+
+        if isinstance(obj, models.Assignment):
+            if obj.id is None:
+                obj.id = len(self.assignments) + 1
+            self.assignments.append(obj)
+
+    def commit(self):
+        self.committed = True
+
+    def refresh(self, obj):
+        return obj
 
 
 def create_skill(skill_id, name, skill_type="hard", category="backend_development"):
@@ -293,3 +315,45 @@ def test_returns_none_when_task_not_found():
 
     assert best_candidate is None
     assert candidate_scores == []
+
+def test_auto_allocation_closes_existing_active_assignments():
+    task = create_task()
+    strong_candidate = create_strong_candidate()
+
+    existing_assignment = models.Assignment(
+        id=1,
+        task_id=task.id,
+        team_member_id=strong_candidate.id,
+        status="active",
+        score_at_assignment=0.80,
+    )
+
+    db = FakeDB(
+        task=task,
+        team_members=[strong_candidate],
+        assignments=[existing_assignment],
+    )
+
+    result = automatically_allocate_task(
+        task_id=task.id,
+        db=db,
+    )
+
+    active_assignments = [
+        assignment
+        for assignment in db.assignments
+        if assignment.task_id == task.id and assignment.status == "active"
+    ]
+
+    reassigned_assignments = [
+        assignment
+        for assignment in db.assignments
+        if assignment.task_id == task.id and assignment.status == "reassigned"
+    ]
+
+    assert result["success"] is True
+    assert result["closed_previous_active_assignments"] == 1
+    assert existing_assignment.status == "reassigned"
+    assert len(active_assignments) == 1
+    assert len(reassigned_assignments) == 1
+    assert task.status == "assigned"
