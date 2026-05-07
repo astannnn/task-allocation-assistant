@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">Skills</h1>
+
+<section class="section">
+    <h2>Create Skill</h2>
+    <p>
+        Create hard or soft skills that can later be attached to team members and used by the allocation logic.
+    </p>
+
+    <form class="form" id="skill-form">
+        <label>Skill Name</label>
+        <input id="skill-name" type="text" placeholder="SQL" required>
+
+        <label>Type</label>
+        <select id="skill-type" required>
+            <option value="hard">hard</option>
+            <option value="soft">soft</option>
+        </select>
+
+        <label>Category</label>
+        <input id="skill-category" type="text" placeholder="Backend Development">
+
+        <button type="submit">Create Skill</button>
+    </form>
+
+    <p id="skill-message" class="message"></p>
+</section>
+
+<section class="section">
+    <h2>Skills List</h2>
+    <p>All skills currently available in the system.</p>
+
+    <button type="button" onclick="loadSkills()">Refresh Skills</button>
+
+    <div id="skills-list" class="list">
+        Skills will be displayed here.
+    </div>
+</section>
+
+<section class="section">
+    <h2>Attach Skill to Team Member</h2>
+    <p>
+        Select a project, choose a team member, choose a skill, and define the skill level.
+        This information is used by the heuristic allocation engine.
+    </p>
+
+    <form class="form" id="attach-skill-form">
+        <label>Project</label>
+        <select id="attach-project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <label>Team Member</label>
+        <select id="attach-team-member-id" required>
+            <option value="">Select team member</option>
+        </select>
+
+        <label>Skill</label>
+        <select id="attach-skill-id" required>
+            <option value="">Select skill</option>
+        </select>
+
+        <label>Skill Level</label>
+        <select id="attach-skill-level" required>
+            <option value="0.25">0.25 - beginner</option>
+            <option value="0.5">0.5 - intermediate</option>
+            <option value="0.75">0.75 - advanced</option>
+            <option value="1">1 - expert</option>
+        </select>
+
+        <button type="submit">Attach Skill</button>
+    </form>
+
+    <p id="attach-skill-message" class="message"></p>
+</section>
+
+<section class="section">
+    <h2>Team Member Skills</h2>
+    <p>Shows the skills attached to the selected team member.</p>
+
+    <button type="button" onclick="loadSelectedTeamMemberSkills()">Load Team Member Skills</button>
+
+    <div id="team-member-skills-list" class="list">
+        Select a team member to view skills.
+    </div>
+</section>
+
+<script>
+    let allSkills = [];
+
+    async function loadProjectsForSkillsPage() {
+        const projectSelect = document.getElementById("attach-project-id");
+
+        try {
+            const response = await fetch("/projects/");
+            const projects = await response.json();
+
+            projectSelect.innerHTML = '<option value="">Select project</option>';
+
+            projects.forEach(project => {
+                const option = document.createElement("option");
+                option.value = project.id;
+                option.textContent = `${project.id} - ${project.title}`;
+                projectSelect.appendChild(option);
+            });
+        } catch (error) {
+            projectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+        }
+    }
+
+    async function loadTeamMembersForSelectedProject() {
+        const projectId = document.getElementById("attach-project-id").value;
+        const teamMemberSelect = document.getElementById("attach-team-member-id");
+        const teamMemberSkillsList = document.getElementById("team-member-skills-list");
+
+        teamMemberSelect.innerHTML = '<option value="">Select team member</option>';
+        teamMemberSkillsList.innerHTML = "Select a team member to view skills.";
+
+        if (!projectId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/team-members/project/${projectId}`);
+            const members = await response.json();
+
+            if (!members || members.length === 0) {
+                teamMemberSelect.innerHTML = '<option value="">No team members found</option>';
+                return;
+            }
+
+            members.forEach(member => {
+                const option = document.createElement("option");
+                option.value = member.id;
+                option.textContent = `${member.id} - ${member.name} (${member.role})`;
+                teamMemberSelect.appendChild(option);
+            });
+        } catch (error) {
+            teamMemberSelect.innerHTML = '<option value="">Failed to load team members</option>';
+        }
+    }
+
+    async function loadSkills() {
+        const skillsList = document.getElementById("skills-list");
+        const attachSkillSelect = document.getElementById("attach-skill-id");
+
+        try {
+            const response = await fetch("/skills/");
+            const skills = await response.json();
+
+            allSkills = skills;
+
+            attachSkillSelect.innerHTML = '<option value="">Select skill</option>';
+
+            if (!skills || skills.length === 0) {
+                skillsList.innerHTML = "<p>No skills found.</p>";
+                return;
+            }
+
+            skillsList.innerHTML = "";
+
+            skills.forEach(skill => {
+                const skillName = skill.name || skill.skill_name || "Unknown Skill";
+
+                const option = document.createElement("option");
+                option.value = skill.id;
+                option.textContent = `${skill.id} - ${skillName}`;
+                attachSkillSelect.appendChild(option);
+
+                const item = document.createElement("div");
+                item.className = "list-item";
+
+                item.innerHTML = `
+                    <h3>${skillName}</h3>
+                    <p><strong>Skill ID:</strong> ${skill.id}</p>
+                    <p><strong>Type:</strong> ${skill.type}</p>
+                    <p><strong>Category:</strong> ${skill.category || "No category"}</p>
+                `;
+
+                skillsList.appendChild(item);
+            });
+        } catch (error) {
+            skillsList.innerHTML = "<p class='error'>Failed to load skills.</p>";
+            attachSkillSelect.innerHTML = '<option value="">Failed to load skills</option>';
+        }
+    }
+
+    function getSkillNameById(skillId) {
+        const skill = allSkills.find(item => item.id === skillId);
+
+        if (!skill) {
+            return `Skill ID ${skillId}`;
+        }
+
+        return skill.name || skill.skill_name || `Skill ID ${skillId}`;
+    }
+
+    async function loadSelectedTeamMemberSkills() {
+        const teamMemberId = document.getElementById("attach-team-member-id").value;
+        const list = document.getElementById("team-member-skills-list");
+
+        if (!teamMemberId) {
+            list.innerHTML = "<p>Please select a team member first.</p>";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/team-members/${teamMemberId}/skills`);
+            const memberSkills = await response.json();
+
+            if (!memberSkills || memberSkills.length === 0) {
+                list.innerHTML = "<p>No skills attached to this team member.</p>";
+                return;
+            }
+
+            list.innerHTML = "";
+
+            memberSkills.forEach(memberSkill => {
+                const skillName = getSkillNameById(memberSkill.skill_id);
+
+                const item = document.createElement("div");
+                item.className = "list-item";
+
+                item.innerHTML = `
+                    <h3>${skillName}</h3>
+                    <p><strong>Team Member ID:</strong> ${memberSkill.team_member_id}</p>
+                    <p><strong>Skill ID:</strong> ${memberSkill.skill_id}</p>
+                    <p><strong>Level:</strong> ${memberSkill.level}</p>
+                `;
+
+                list.appendChild(item);
+            });
+        } catch (error) {
+            list.innerHTML = "<p class='error'>Failed to load team member skills.</p>";
+        }
+    }
+
+    document.getElementById("skill-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const message = document.getElementById("skill-message");
+
+        const payload = {
+            name: document.getElementById("skill-name").value,
+            type: document.getElementById("skill-type").value,
+            category: document.getElementById("skill-category").value || null
+        };
+
+        try {
+            const response = await fetch("/skills/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to create skill.";
+                message.className = "message error";
+                return;
+            }
+
+            const createdSkill = await response.json();
+
+            message.textContent = `Skill created successfully. ID: ${createdSkill.id}`;
+            message.className = "message success";
+
+            document.getElementById("skill-form").reset();
+
+            await loadSkills();
+        } catch (error) {
+            message.textContent = "Error while creating skill.";
+            message.className = "message error";
+        }
+    });
+
+    document.getElementById("attach-skill-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const message = document.getElementById("attach-skill-message");
+
+        const teamMemberId = document.getElementById("attach-team-member-id").value;
+        const skillId = document.getElementById("attach-skill-id").value;
+        const level = document.getElementById("attach-skill-level").value;
+
+        if (!teamMemberId || !skillId || !level) {
+            message.textContent = "Please select team member, skill, and level.";
+            message.className = "message error";
+            return;
+        }
+
+        const payload = {
+            team_member_id: Number(teamMemberId),
+            skill_id: Number(skillId),
+            level: Number(level)
+        };
+
+        try {
+            const response = await fetch("/team-members/skills/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to attach skill to team member.";
+                message.className = "message error";
+                return;
+            }
+
+            const result = await response.json();
+            const skillName = getSkillNameById(result.skill_id);
+
+            message.textContent = `Skill "${skillName}" attached successfully to team member ID ${result.team_member_id}.`;
+            message.className = "message success";
+
+            await loadSelectedTeamMemberSkills();
+        } catch (error) {
+            message.textContent = "Error while attaching skill.";
+            message.className = "message error";
+        }
+    });
+
+    document.getElementById("attach-project-id").addEventListener("change", loadTeamMembersForSelectedProject);
+    document.getElementById("attach-team-member-id").addEventListener("change", loadSelectedTeamMemberSkills);
+
+    loadProjectsForSkillsPage();
+    loadSkills();
+</script>
+{% endblock %}
