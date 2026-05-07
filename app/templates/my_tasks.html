@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="my-tasks-page">
+    <div class="my-tasks-header">
+        <div>
+            <h1>My Tasks</h1>
+            <p>
+                Logged in as:
+                <strong>{{ current_user.name }}</strong>
+                <span>{{ current_user.role }}</span>
+            </p>
+        </div>
+
+        <a href="/logout">Logout</a>
+    </div>
+
+    {% if assignments %}
+        <div class="my-tasks-card">
+            <table class="my-tasks-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Project ID</th>
+                        <th>Priority</th>
+                        <th>Task Status</th>
+                        <th>Assignment Status</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for assignment in assignments %}
+                        <tr>
+                            <td class="task-name">{{ assignment.task.title }}</td>
+                            <td>{{ assignment.task.project_id }}</td>
+                            <td>{{ assignment.task.priority }}</td>
+                            <td>{{ assignment.task.status }}</td>
+                            <td>{{ assignment.status }}</td>
+                            <td>
+                                {% if assignment.score_at_assignment is not none %}
+                                    {{ "%.3f"|format(assignment.score_at_assignment) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="my-tasks-empty">
+            <h3>No tasks assigned yet</h3>
+            <p>You do not have any assigned tasks connected to your account.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -137,3 +137,26 @@ class AssignmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# ---------- User Schemas ----------
+
+class UserBase(BaseModel):
+    name: str
+    email: str
+    role: str = "team_member"  # manager or team_member
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(UserBase):
+    id: int
+
+    class Config:
+        from_attributes = True

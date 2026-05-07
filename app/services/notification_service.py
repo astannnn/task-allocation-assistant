@@ -14,9 +14,9 @@ def create_notification(
     """
     Create a notification record in the database.
 
-    Notifications are used to inform the manager or user about important
-    allocation events, such as automatic assignment, reassignment,
-    conflicts, or manual review cases.
+    Notifications are used to inform the manager or team member about
+    important allocation events, such as automatic assignment,
+    reassignment, conflicts, or manual review cases.
     """
     notification = models.Notification(
         user_id=user_id,
@@ -83,6 +83,9 @@ def create_task_assignment_notification(
 ):
     """
     Create notification when a task is automatically assigned.
+
+    If the team member is connected to a user account through user_id,
+    the notification is sent directly to that user.
     """
     message = (
         f"Task '{task.title}' was automatically assigned to "
@@ -93,6 +96,7 @@ def create_task_assignment_notification(
         db=db,
         message=message,
         notification_type="task_assigned",
+        user_id=team_member.user_id,
     )
 
 
@@ -104,6 +108,9 @@ def create_task_reassignment_notification(
 ):
     """
     Create notification when a delayed task is reassigned.
+
+    The notification is sent to the new assigned team member if the
+    team member is connected to a user account.
     """
     previous_name = previous_member.name if previous_member else "previous assignee"
 
@@ -116,6 +123,7 @@ def create_task_reassignment_notification(
         db=db,
         message=message,
         notification_type="task_reassigned",
+        user_id=new_member.user_id,
     )
 
 
@@ -126,6 +134,9 @@ def create_manual_review_notification(
 ):
     """
     Create notification when a task requires manual review.
+
+    This notification is not linked to a specific team member because
+    manual review is mainly intended for the manager.
     """
     message = (
         f"Task '{task.title}' requires manual review. Reason: {reason}"

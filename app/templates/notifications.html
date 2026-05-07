@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="my-tasks-page notifications-wide-page">
+    <div class="my-tasks-header">
+        <div>
+            <h1>Notifications</h1>
+            <p>
+                Logged in as:
+                <strong>{{ current_user.name }}</strong>
+                <span>{{ current_user.role }}</span>
+            </p>
+        </div>
+
+        <a href="/logout">Logout</a>
+    </div>
+
+    {% if notifications %}
+        <div class="my-tasks-card">
+            <table class="my-tasks-table notifications-table-fixed">
+                <thead>
+                    <tr>
+                        <th class="notification-message-col">Message</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for notification in notifications %}
+                        <tr>
+                            <td class="task-name notification-message-cell">
+                                {{ notification.message }}
+                            </td>
+                            <td>{{ notification.type }}</td>
+                            <td>{{ notification.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                            <td>
+                                {% if notification.is_read == 1 %}
+                                    Read
+                                {% else %}
+                                    Unread
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="my-tasks-empty">
+            <h3>No notifications yet</h3>
+            <p>You do not have notifications connected to your account.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
