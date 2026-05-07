@@ -37,8 +37,17 @@
         <input id="task-estimated-effort" type="number" min="1" placeholder="5" required>
 
         <label>Required Skills</label>
-        <div id="required-skills-list" class="checkbox-list">
-            Loading skills...
+        <div class="custom-multiselect" id="required-skills-multiselect">
+            <div class="custom-multiselect-button" onclick="toggleRequiredSkillsDropdown()">
+                <span id="required-skills-selected-text">Select required skills</span>
+                <span class="custom-multiselect-arrow">▼</span>
+            </div>
+
+            <div id="required-skills-dropdown" class="custom-multiselect-menu">
+                <div id="required-skills-list">
+                    Loading skills...
+                </div>
+            </div>
         </div>
 
         <button type="submit">Create Task</button>
@@ -96,41 +105,52 @@
         </select>
 
         <label>Components</label>
-        <div class="checkbox-list">
-            <label>
-                <input type="checkbox" class="template-component" value="backend_api" data-complexity="high">
-                Backend API - high
-            </label>
+        <div class="custom-multiselect" id="components-multiselect">
+            <div class="custom-multiselect-button" onclick="toggleComponentsDropdown()">
+                <span id="components-selected-text">Select project components</span>
+                <span class="custom-multiselect-arrow">▼</span>
+            </div>
 
-            <label>
-                <input type="checkbox" class="template-component" value="frontend_pages" data-complexity="medium">
-                Frontend Pages - medium
-            </label>
+            <div id="components-dropdown" class="custom-multiselect-menu">
+                <div class="checkbox-list">
+                    <label>
+                        <input type="checkbox" class="template-component" value="backend_api" data-complexity="high">
+                        Backend API - high
+                    </label>
 
-            <label>
-                <input type="checkbox" class="template-component" value="database_design" data-complexity="medium">
-                Database Design - medium
-            </label>
+                    <label>
+                        <input type="checkbox" class="template-component" value="frontend_pages"
+                            data-complexity="medium">
+                        Frontend Pages - medium
+                    </label>
 
-            <label>
-                <input type="checkbox" class="template-component" value="authentication" data-complexity="high">
-                Authentication - high
-            </label>
+                    <label>
+                        <input type="checkbox" class="template-component" value="database_design"
+                            data-complexity="medium">
+                        Database Design - medium
+                    </label>
 
-            <label>
-                <input type="checkbox" class="template-component" value="admin_panel" data-complexity="medium">
-                Admin Panel - medium
-            </label>
+                    <label>
+                        <input type="checkbox" class="template-component" value="authentication" data-complexity="high">
+                        Authentication - high
+                    </label>
 
-            <label>
-                <input type="checkbox" class="template-component" value="testing" data-complexity="medium">
-                Testing - medium
-            </label>
+                    <label>
+                        <input type="checkbox" class="template-component" value="admin_panel" data-complexity="medium">
+                        Admin Panel - medium
+                    </label>
 
-            <label>
-                <input type="checkbox" class="template-component" value="documentation" data-complexity="low">
-                Documentation - low
-            </label>
+                    <label>
+                        <input type="checkbox" class="template-component" value="testing" data-complexity="medium">
+                        Testing - medium
+                    </label>
+
+                    <label>
+                        <input type="checkbox" class="template-component" value="documentation" data-complexity="low">
+                        Documentation - low
+                    </label>
+                </div>
+            </div>
         </div>
 
         <button type="button" onclick="generateTemplateTasks()">Generate Tasks</button>
@@ -188,6 +208,8 @@
                 const skillName = skill.name || skill.skill_name || "Unknown Skill";
 
                 const label = document.createElement("label");
+                label.className = "custom-multiselect-option";
+
                 label.innerHTML = `
                     <input type="checkbox" class="required-skill-checkbox" value="${skill.id}">
                     ${skill.id} - ${skillName}
@@ -195,6 +217,12 @@
 
                 skillsList.appendChild(label);
             });
+
+            document.querySelectorAll(".required-skill-checkbox").forEach(checkbox => {
+                checkbox.addEventListener("change", updateRequiredSkillsSelectedText);
+            });
+
+            updateRequiredSkillsSelectedText();
         } catch (error) {
             skillsList.innerHTML = "<p class='error'>Failed to load skills.</p>";
         }
@@ -210,17 +238,45 @@
         }
 
         try {
-            const response = await fetch(`/tasks/project/${projectId}`);
-            const tasks = await response.json();
+            const tasksResponse = await fetch(`/tasks/project/${projectId}`);
+            const tasks = await tasksResponse.json();
 
             if (!tasks || tasks.length === 0) {
                 list.innerHTML = "<p>No tasks found for this project.</p>";
                 return;
             }
 
+            const membersResponse = await fetch(`/team-members/project/${projectId}`);
+            const members = await membersResponse.json();
+
+            const membersMap = {};
+            members.forEach(member => {
+                membersMap[member.id] = member.name;
+            });
+
             list.innerHTML = "";
 
-            tasks.forEach(task => {
+            for (const task of tasks) {
+                let assignmentText = "Not assigned";
+                let assignmentStatus = "none";
+                let assignmentScore = "none";
+
+                try {
+                    const assignmentResponse = await fetch(`/assignments/task/${task.id}`);
+                    const assignments = await assignmentResponse.json();
+
+                    if (assignments && assignments.length > 0) {
+                        const activeAssignment = assignments[0];
+                        const memberName = membersMap[activeAssignment.team_member_id] || `Member ID ${activeAssignment.team_member_id}`;
+
+                        assignmentText = memberName;
+                        assignmentStatus = activeAssignment.status;
+                        assignmentScore = activeAssignment.score_at_assignment;
+                    }
+                } catch (error) {
+                    assignmentText = "Failed to load assignment";
+                }
+
                 const item = document.createElement("div");
                 item.className = "list-item";
 
@@ -232,11 +288,18 @@
                     <p><strong>Deadline:</strong> ${task.deadline}</p>
                     <p><strong>Estimated Effort:</strong> ${task.estimated_effort}</p>
                     <p><strong>Description:</strong> ${task.description || "No description"}</p>
+
+                    <hr>
+
+                    <p><strong>Assigned Member:</strong> ${assignmentText}</p>
+                    <p><strong>Assignment Status:</strong> ${assignmentStatus}</p>
+                    <p><strong>Assignment Score:</strong> ${assignmentScore}</p>
+
                     <button type="button" onclick="selectTaskForAllocation(${task.id})">Select for Allocation</button>
                 `;
 
                 list.appendChild(item);
-            });
+            }
         } catch (error) {
             list.innerHTML = "<p class='error'>Failed to load tasks.</p>";
         }
@@ -248,7 +311,71 @@
             `<p>Selected task ID: <strong>${taskId}</strong></p>`;
     }
 
+    function toggleRequiredSkillsDropdown() {
+        const dropdown = document.getElementById("required-skills-dropdown");
+        dropdown.classList.toggle("show");
+    }
+
+    function updateRequiredSkillsSelectedText() {
+        const selectedCheckboxes = document.querySelectorAll(".required-skill-checkbox:checked");
+        const text = document.getElementById("required-skills-selected-text");
+
+        if (selectedCheckboxes.length === 0) {
+            text.textContent = "Select required skills";
+        } else if (selectedCheckboxes.length === 1) {
+            text.textContent = "1 skill selected";
+        } else {
+            text.textContent = `${selectedCheckboxes.length} skills selected`;
+        }
+    }
+
+    function toggleComponentsDropdown() {
+        const dropdown = document.getElementById("components-dropdown");
+        dropdown.classList.toggle("show");
+    }
+
+    function updateComponentsSelectedText() {
+        const selectedCheckboxes = document.querySelectorAll(".template-component:checked");
+        const text = document.getElementById("components-selected-text");
+
+        if (selectedCheckboxes.length === 0) {
+            text.textContent = "Select project components";
+        } else if (selectedCheckboxes.length === 1) {
+            text.textContent = "1 component selected";
+        } else {
+            text.textContent = `${selectedCheckboxes.length} components selected`;
+        }
+    }
+
+    document.addEventListener("click", function (event) {
+        const requiredSkillsMultiselect = document.getElementById("required-skills-multiselect");
+        const requiredSkillsDropdown = document.getElementById("required-skills-dropdown");
+
+        const componentsMultiselect = document.getElementById("components-multiselect");
+        const componentsDropdown = document.getElementById("components-dropdown");
+
+        if (
+            requiredSkillsMultiselect &&
+            requiredSkillsDropdown &&
+            !requiredSkillsMultiselect.contains(event.target)
+        ) {
+            requiredSkillsDropdown.classList.remove("show");
+        }
+
+        if (
+            componentsMultiselect &&
+            componentsDropdown &&
+            !componentsMultiselect.contains(event.target)
+        ) {
+            componentsDropdown.classList.remove("show");
+        }
+    });
+
     document.getElementById("task-project-id").addEventListener("change", loadTasks);
+
+    document.querySelectorAll(".template-component").forEach(checkbox => {
+        checkbox.addEventListener("change", updateComponentsSelectedText);
+    });
 
     document.getElementById("task-form").addEventListener("submit", async function (event) {
         event.preventDefault();
@@ -328,6 +455,7 @@
             document.getElementById("task-project-id").value = projectId;
 
             await loadSkillsForTaskForm();
+            updateRequiredSkillsSelectedText();
             await loadTasks();
         } catch (error) {
             message.textContent = "Error while creating task.";
@@ -472,6 +600,7 @@
             `;
 
             document.getElementById("task-project-id").value = projectId;
+            updateComponentsSelectedText();
             await loadTasks();
         } catch (error) {
             resultBox.innerHTML = "<p class='error'>Error while generating template tasks.</p>";
@@ -480,5 +609,6 @@
 
     loadProjectsForTasks();
     loadSkillsForTaskForm();
+    updateComponentsSelectedText();
 </script>
 {% endblock %}

@@ -4,23 +4,310 @@
 <h1 class="page-title">Analytics</h1>
 
 <section class="section">
+    <h2>Project Analytics</h2>
+    <p>
+        This page shows workload analysis, conflict detection, and redistribution suggestions.
+        These results are produced by the rule-based decision-support logic of the system.
+    </p>
+
+    <form class="form">
+        <label>Project</label>
+        <select id="analytics-project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <button type="button" onclick="loadWorkloadAnalysis()">Load Workload Analysis</button>
+        <button type="button" onclick="loadConflictDetection()">Load Conflict Detection</button>
+        <button type="button" onclick="loadRedistributionSuggestions()">Load Redistribution Suggestions</button>
+        <button type="button" onclick="loadAllAnalytics()">Load All Analytics</button>
+    </form>
+
+    <p id="analytics-message" class="message"></p>
+</section>
+
+<section class="section">
     <h2>Workload Analysis</h2>
     <p>
-        This section will show overloaded and underused team members.
+        Shows the workload status of each team member and whether the project is balanced.
     </p>
+
+    <div id="workload-result" class="result-box">
+        Workload analysis will be displayed here.
+    </div>
 </section>
 
 <section class="section">
     <h2>Conflict Detection</h2>
     <p>
-        This section will show cases where several tasks compete for the same best candidate.
+        Shows possible conflicts when several open tasks compete for the same suitable team member.
     </p>
+
+    <div id="conflicts-result" class="result-box">
+        Conflict detection result will be displayed here.
+    </div>
 </section>
 
 <section class="section">
     <h2>Redistribution Suggestions</h2>
     <p>
-        This section will show possible reassignment or workload balancing suggestions.
+        Shows suggestions for redistributing work if overloaded team members are detected.
     </p>
+
+    <div id="redistribution-result" class="result-box">
+        Redistribution suggestions will be displayed here.
+    </div>
 </section>
+
+<script>
+    async function loadProjectsForAnalytics() {
+        const projectSelect = document.getElementById("analytics-project-id");
+
+        try {
+            const response = await fetch("/projects/");
+            const projects = await response.json();
+
+            projectSelect.innerHTML = '<option value="">Select project</option>';
+
+            projects.forEach(project => {
+                const option = document.createElement("option");
+                option.value = project.id;
+                option.textContent = `${project.id} - ${project.title}`;
+                projectSelect.appendChild(option);
+            });
+        } catch (error) {
+            projectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+        }
+    }
+
+    function getSelectedProjectId() {
+        const projectId = document.getElementById("analytics-project-id").value;
+        const message = document.getElementById("analytics-message");
+
+        if (!projectId) {
+            message.textContent = "Please select a project first.";
+            message.className = "message error";
+            return null;
+        }
+
+        message.textContent = "";
+        message.className = "message";
+
+        return projectId;
+    }
+
+    function getWorkloadStatusClass(status) {
+        if (status === "overloaded") {
+            return "error";
+        }
+
+        if (status === "underloaded") {
+            return "warning-text";
+        }
+
+        if (status === "balanced") {
+            return "success";
+        }
+
+        return "";
+    }
+
+    async function loadWorkloadAnalysis() {
+        const projectId = getSelectedProjectId();
+        const resultBox = document.getElementById("workload-result");
+
+        if (!projectId) {
+            return;
+        }
+
+        resultBox.innerHTML = "<p>Loading workload analysis...</p>";
+
+        try {
+            const response = await fetch(`/analytics/project/${projectId}/workload`);
+            const result = await response.json();
+
+            if (!response.ok) {
+                resultBox.innerHTML = `
+                    <h3 class="error">Failed to load workload analysis</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            if (!result.members || result.members.length === 0) {
+                resultBox.innerHTML = "<p>No team members found for this project.</p>";
+                return;
+            }
+
+            let membersHtml = "";
+
+            result.members.forEach(member => {
+                const statusClass = getWorkloadStatusClass(member.workload_status);
+
+                membersHtml += `
+                    <div class="analytics-card">
+                        <h3>${member.name}</h3>
+                        <p><strong>Role:</strong> ${member.role}</p>
+                        <p><strong>Workload:</strong> ${member.workload}</p>
+                        <p><strong>Availability:</strong> ${member.availability}</p>
+                        <p><strong>Reliability:</strong> ${member.reliability}</p>
+                        <p><strong>Dynamic Status:</strong> ${member.dynamic_status}</p>
+                        <p><strong>Mood State:</strong> ${member.mood_state}</p>
+                        <p><strong>Workload Status:</strong> <span class="${statusClass}">${member.workload_status}</span></p>
+                    </div>
+                `;
+            });
+
+            resultBox.innerHTML = `
+                <h3>Project Workload Summary</h3>
+                <p><strong>Project ID:</strong> ${result.project_id}</p>
+                <p><strong>Average Workload:</strong> ${result.average_workload}</p>
+                <p><strong>Balance Status:</strong> <span class="${getWorkloadStatusClass(result.balance_status)}">${result.balance_status}</span></p>
+                <p><strong>Overloaded Members:</strong> ${result.overloaded_members.length}</p>
+                <p><strong>Underloaded Members:</strong> ${result.underloaded_members.length}</p>
+
+                <h3>Team Members</h3>
+                <div class="analytics-grid">
+                    ${membersHtml}
+                </div>
+            `;
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while loading workload analysis.</p>";
+        }
+    }
+
+    async function loadConflictDetection() {
+        const projectId = getSelectedProjectId();
+        const resultBox = document.getElementById("conflicts-result");
+
+        if (!projectId) {
+            return;
+        }
+
+        resultBox.innerHTML = "<p>Loading conflict detection...</p>";
+
+        try {
+            const response = await fetch(`/analytics/project/${projectId}/conflicts`);
+            const result = await response.json();
+
+            if (!response.ok) {
+                resultBox.innerHTML = `
+                    <h3 class="error">Failed to load conflict detection</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            if (!result.conflicts || result.conflicts.length === 0) {
+                resultBox.innerHTML = `
+                    <h3>No Conflicts Detected</h3>
+                    <p>${result.message || "There are no detected conflicts for this project."}</p>
+                    <p><strong>Task Recommendations:</strong> ${result.task_recommendations ? result.task_recommendations.length : 0}</p>
+                `;
+                return;
+            }
+
+            let conflictsHtml = "";
+
+            result.conflicts.forEach((conflict, index) => {
+                conflictsHtml += `
+                    <div class="analytics-card">
+                        <h3>Conflict ${index + 1}</h3>
+                        <pre>${JSON.stringify(conflict, null, 2)}</pre>
+                    </div>
+                `;
+            });
+
+            let recommendationsHtml = "";
+
+            if (result.task_recommendations && result.task_recommendations.length > 0) {
+                result.task_recommendations.forEach((recommendation, index) => {
+                    recommendationsHtml += `
+                        <div class="analytics-card">
+                            <h3>Recommendation ${index + 1}</h3>
+                            <pre>${JSON.stringify(recommendation, null, 2)}</pre>
+                        </div>
+                    `;
+                });
+            } else {
+                recommendationsHtml = "<p>No task recommendations available.</p>";
+            }
+
+            resultBox.innerHTML = `
+                <h3>Conflicts Detected</h3>
+                <p><strong>Project ID:</strong> ${result.project_id}</p>
+                <div class="analytics-grid">
+                    ${conflictsHtml}
+                </div>
+
+                <h3>Task Recommendations</h3>
+                <div class="analytics-grid">
+                    ${recommendationsHtml}
+                </div>
+            `;
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while loading conflict detection.</p>";
+        }
+    }
+
+    async function loadRedistributionSuggestions() {
+        const projectId = getSelectedProjectId();
+        const resultBox = document.getElementById("redistribution-result");
+
+        if (!projectId) {
+            return;
+        }
+
+        resultBox.innerHTML = "<p>Loading redistribution suggestions...</p>";
+
+        try {
+            const response = await fetch(`/analytics/project/${projectId}/redistribution-suggestions`);
+            const result = await response.json();
+
+            if (!response.ok) {
+                resultBox.innerHTML = `
+                    <h3 class="error">Failed to load redistribution suggestions</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            if (!result.suggestions || result.suggestions.length === 0) {
+                resultBox.innerHTML = `
+                    <h3>No Redistribution Needed</h3>
+                    <p>${result.message || "No redistribution suggestions are available for this project."}</p>
+                `;
+                return;
+            }
+
+            let suggestionsHtml = "";
+
+            result.suggestions.forEach((suggestion, index) => {
+                suggestionsHtml += `
+                    <div class="analytics-card">
+                        <h3>Suggestion ${index + 1}</h3>
+                        <pre>${JSON.stringify(suggestion, null, 2)}</pre>
+                    </div>
+                `;
+            });
+
+            resultBox.innerHTML = `
+                <h3>Redistribution Suggestions</h3>
+                <p><strong>Project ID:</strong> ${result.project_id}</p>
+                <div class="analytics-grid">
+                    ${suggestionsHtml}
+                </div>
+            `;
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while loading redistribution suggestions.</p>";
+        }
+    }
+
+    async function loadAllAnalytics() {
+        await loadWorkloadAnalysis();
+        await loadConflictDetection();
+        await loadRedistributionSuggestions();
+    }
+
+    loadProjectsForAnalytics();
+</script>
 {% endblock %}
