@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">Tasks</h1>
+
+<section class="section">
+    <h2>Create Single Task</h2>
+    <p>
+        A manager can create a task, define priority, deadline, estimated effort,
+        select required skills, then preview or run automatic allocation.
+    </p>
+
+    <form class="form" id="task-form">
+        <label>Project</label>
+        <select id="task-project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <label>Task Title</label>
+        <input id="task-title" type="text" placeholder="Implement authentication API" required>
+
+        <label>Description</label>
+        <textarea id="task-description" placeholder="Task description" required></textarea>
+
+        <label>Priority</label>
+        <select id="task-priority" required>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="critical">critical</option>
+        </select>
+
+        <label>Deadline</label>
+        <input id="task-deadline" type="date" required>
+
+        <label>Estimated Effort</label>
+        <input id="task-estimated-effort" type="number" min="1" placeholder="5" required>
+
+        <label>Required Skills</label>
+        <div id="required-skills-list" class="checkbox-list">
+            Loading skills...
+        </div>
+
+        <button type="submit">Create Task</button>
+    </form>
+
+    <p id="task-message" class="message"></p>
+</section>
+
+<section class="section">
+    <h2>Task List</h2>
+    <p>Tasks for the selected project.</p>
+
+    <button type="button" onclick="loadTasks()">Refresh Tasks</button>
+
+    <div id="tasks-list" class="list">
+        Select a project to load tasks.
+    </div>
+</section>
+
+<section class="section">
+    <h2>Allocation Actions</h2>
+    <p>
+        Select a task ID to preview the heuristic scoring or run automatic allocation.
+    </p>
+
+    <form class="form">
+        <label>Task ID</label>
+        <input id="allocation-task-id" type="number" placeholder="16">
+
+        <button type="button" onclick="previewAllocation()">Preview Allocation</button>
+        <button type="button" onclick="autoAllocateTask()">Auto Allocate</button>
+    </form>
+
+    <div id="allocation-result" class="result-box">
+        Allocation result will be displayed here.
+    </div>
+</section>
+
+<section class="section">
+    <h2>Structured Project Creation</h2>
+    <p>
+        For complex projects, the manager can select a project type and components.
+        The system decomposes the project into tasks using rule-based templates.
+    </p>
+
+    <form class="form" id="template-form">
+        <label>Project</label>
+        <select id="template-project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <label>Project Type</label>
+        <select id="template-key" required>
+            <option value="website_development">website_development</option>
+        </select>
+
+        <label>Components</label>
+        <div class="checkbox-list">
+            <label>
+                <input type="checkbox" class="template-component" value="backend_api" data-complexity="high">
+                Backend API - high
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="frontend_pages" data-complexity="medium">
+                Frontend Pages - medium
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="database_design" data-complexity="medium">
+                Database Design - medium
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="authentication" data-complexity="high">
+                Authentication - high
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="admin_panel" data-complexity="medium">
+                Admin Panel - medium
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="testing" data-complexity="medium">
+                Testing - medium
+            </label>
+
+            <label>
+                <input type="checkbox" class="template-component" value="documentation" data-complexity="low">
+                Documentation - low
+            </label>
+        </div>
+
+        <button type="button" onclick="generateTemplateTasks()">Generate Tasks</button>
+    </form>
+
+    <div id="template-result" class="result-box">
+        Template generation result will be displayed here.
+    </div>
+</section>
+
+<script>
+    async function loadProjectsForTasks() {
+        const taskProjectSelect = document.getElementById("task-project-id");
+        const templateProjectSelect = document.getElementById("template-project-id");
+
+        try {
+            const response = await fetch("/projects/");
+            const projects = await response.json();
+
+            taskProjectSelect.innerHTML = '<option value="">Select project</option>';
+            templateProjectSelect.innerHTML = '<option value="">Select project</option>';
+
+            projects.forEach(project => {
+                const taskOption = document.createElement("option");
+                taskOption.value = project.id;
+                taskOption.textContent = `${project.id} - ${project.title}`;
+                taskProjectSelect.appendChild(taskOption);
+
+                const templateOption = document.createElement("option");
+                templateOption.value = project.id;
+                templateOption.textContent = `${project.id} - ${project.title}`;
+                templateProjectSelect.appendChild(templateOption);
+            });
+        } catch (error) {
+            taskProjectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+            templateProjectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+        }
+    }
+
+    async function loadSkillsForTaskForm() {
+        const skillsList = document.getElementById("required-skills-list");
+
+        try {
+            const response = await fetch("/skills/");
+            const skills = await response.json();
+
+            if (!skills || skills.length === 0) {
+                skillsList.innerHTML = "<p>No skills found. Create skills first.</p>";
+                return;
+            }
+
+            skillsList.innerHTML = "";
+
+            skills.forEach(skill => {
+                const skillName = skill.name || skill.skill_name || "Unknown Skill";
+
+                const label = document.createElement("label");
+                label.innerHTML = `
+                    <input type="checkbox" class="required-skill-checkbox" value="${skill.id}">
+                    ${skill.id} - ${skillName}
+                `;
+
+                skillsList.appendChild(label);
+            });
+        } catch (error) {
+            skillsList.innerHTML = "<p class='error'>Failed to load skills.</p>";
+        }
+    }
+
+    async function loadTasks() {
+        const projectId = document.getElementById("task-project-id").value;
+        const list = document.getElementById("tasks-list");
+
+        if (!projectId) {
+            list.innerHTML = "<p>Please select a project first.</p>";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/tasks/project/${projectId}`);
+            const tasks = await response.json();
+
+            if (!tasks || tasks.length === 0) {
+                list.innerHTML = "<p>No tasks found for this project.</p>";
+                return;
+            }
+
+            list.innerHTML = "";
+
+            tasks.forEach(task => {
+                const item = document.createElement("div");
+                item.className = "list-item";
+
+                item.innerHTML = `
+                    <h3>${task.title}</h3>
+                    <p><strong>Task ID:</strong> ${task.id}</p>
+                    <p><strong>Status:</strong> ${task.status}</p>
+                    <p><strong>Priority:</strong> ${task.priority}</p>
+                    <p><strong>Deadline:</strong> ${task.deadline}</p>
+                    <p><strong>Estimated Effort:</strong> ${task.estimated_effort}</p>
+                    <p><strong>Description:</strong> ${task.description || "No description"}</p>
+                    <button type="button" onclick="selectTaskForAllocation(${task.id})">Select for Allocation</button>
+                `;
+
+                list.appendChild(item);
+            });
+        } catch (error) {
+            list.innerHTML = "<p class='error'>Failed to load tasks.</p>";
+        }
+    }
+
+    function selectTaskForAllocation(taskId) {
+        document.getElementById("allocation-task-id").value = taskId;
+        document.getElementById("allocation-result").innerHTML =
+            `<p>Selected task ID: <strong>${taskId}</strong></p>`;
+    }
+
+    document.getElementById("task-project-id").addEventListener("change", loadTasks);
+
+    document.getElementById("task-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const projectId = document.getElementById("task-project-id").value;
+        const message = document.getElementById("task-message");
+
+        if (!projectId) {
+            message.textContent = "Please select a project.";
+            message.className = "message error";
+            return;
+        }
+
+        const selectedSkillIds = Array.from(
+            document.querySelectorAll(".required-skill-checkbox:checked")
+        ).map(checkbox => Number(checkbox.value));
+
+        if (selectedSkillIds.length === 0) {
+            message.textContent = "Please select at least one required skill.";
+            message.className = "message error";
+            return;
+        }
+
+        const payload = {
+            project_id: Number(projectId),
+            title: document.getElementById("task-title").value,
+            description: document.getElementById("task-description").value,
+            priority: document.getElementById("task-priority").value,
+            deadline: document.getElementById("task-deadline").value,
+            status: "open",
+            estimated_effort: Number(document.getElementById("task-estimated-effort").value)
+        };
+
+        try {
+            const response = await fetch("/tasks/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to create task.";
+                message.className = "message error";
+                return;
+            }
+
+            const createdTask = await response.json();
+
+            for (const skillId of selectedSkillIds) {
+                const skillResponse = await fetch("/tasks/required-skills/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        task_id: createdTask.id,
+                        skill_id: skillId
+                    })
+                });
+
+                if (!skillResponse.ok) {
+                    message.textContent = `Task created, but failed to attach required skill ID: ${skillId}`;
+                    message.className = "message error";
+                    await loadTasks();
+                    return;
+                }
+            }
+
+            message.textContent = `Task created successfully with required skills. ID: ${createdTask.id}`;
+            message.className = "message success";
+
+            document.getElementById("allocation-task-id").value = createdTask.id;
+
+            document.getElementById("task-form").reset();
+            document.getElementById("task-project-id").value = projectId;
+
+            await loadSkillsForTaskForm();
+            await loadTasks();
+        } catch (error) {
+            message.textContent = "Error while creating task.";
+            message.className = "message error";
+        }
+    });
+
+    async function previewAllocation() {
+        const taskId = document.getElementById("allocation-task-id").value;
+        const resultBox = document.getElementById("allocation-result");
+
+        if (!taskId) {
+            resultBox.innerHTML = "<p class='error'>Please enter or select a task ID.</p>";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/assignments/preview/${taskId}`);
+            const result = await response.json();
+
+            if (!response.ok) {
+                resultBox.innerHTML = "<p class='error'>Failed to preview allocation.</p>";
+                return;
+            }
+
+            if (!result.best_candidate) {
+                resultBox.innerHTML = `
+                    <h3>No suitable candidate found</h3>
+                    <p>The system calculated candidate scores, but no candidate passed the allocation threshold.</p>
+                    <pre>${JSON.stringify(result.candidate_scores, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            resultBox.innerHTML = `
+                <h3>Best Candidate</h3>
+                <p><strong>Task:</strong> ${result.task_title}</p>
+                <p><strong>Member:</strong> ${result.best_candidate.team_member_name}</p>
+                <p><strong>Role:</strong> ${result.best_candidate.role}</p>
+                <p><strong>Score:</strong> ${result.best_candidate.score}</p>
+                <p><strong>Explanation:</strong> ${result.best_candidate.explanation}</p>
+                <pre>${JSON.stringify(result.best_candidate.score_breakdown, null, 2)}</pre>
+            `;
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while previewing allocation.</p>";
+        }
+    }
+
+    async function autoAllocateTask() {
+        const taskId = document.getElementById("allocation-task-id").value;
+        const resultBox = document.getElementById("allocation-result");
+
+        if (!taskId) {
+            resultBox.innerHTML = "<p class='error'>Please enter or select a task ID.</p>";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/assignments/auto-allocate/${taskId}`, {
+                method: "POST"
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                resultBox.innerHTML = `
+                    <h3 class="error">Allocation failed</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            resultBox.innerHTML = `
+                <h3 class="success">Task allocated successfully</h3>
+                <p><strong>Assignment ID:</strong> ${result.assignment.id}</p>
+                <p><strong>Task ID:</strong> ${result.assignment.task_id}</p>
+                <p><strong>Team Member ID:</strong> ${result.assignment.team_member_id}</p>
+                <p><strong>Score:</strong> ${result.assignment.score_at_assignment}</p>
+                <p><strong>Status:</strong> ${result.assignment.status}</p>
+                <p><strong>Explanation:</strong> ${result.selected_candidate_explanation}</p>
+            `;
+
+            await loadTasks();
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while running auto-allocation.</p>";
+        }
+    }
+
+    async function generateTemplateTasks() {
+        const projectId = document.getElementById("template-project-id").value;
+        const templateKey = document.getElementById("template-key").value;
+        const resultBox = document.getElementById("template-result");
+
+        if (!projectId) {
+            resultBox.innerHTML = "<p class='error'>Please select a project.</p>";
+            return;
+        }
+
+        const selectedComponents = [];
+
+        document.querySelectorAll(".template-component:checked").forEach(component => {
+            selectedComponents.push({
+                component_key: component.value,
+                complexity: component.dataset.complexity
+            });
+        });
+
+        if (selectedComponents.length === 0) {
+            resultBox.innerHTML = "<p class='error'>Please select at least one component.</p>";
+            return;
+        }
+
+        const payload = {
+            template_key: templateKey,
+            selected_components: selectedComponents
+        };
+
+        try {
+            const response = await fetch(`/project-templates/projects/${projectId}/generate-template-tasks`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                resultBox.innerHTML = `
+                    <h3 class="error">Template generation failed</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                return;
+            }
+
+            resultBox.innerHTML = `
+                <h3 class="success">Template tasks generated</h3>
+                <p><strong>Created tasks:</strong> ${result.total_created_tasks}</p>
+                <p><strong>Skipped tasks:</strong> ${result.total_skipped_tasks}</p>
+                <pre>${JSON.stringify(result.created_tasks, null, 2)}</pre>
+            `;
+
+            document.getElementById("task-project-id").value = projectId;
+            await loadTasks();
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while generating template tasks.</p>";
+        }
+    }
+
+    loadProjectsForTasks();
+    loadSkillsForTaskForm();
+</script>
+{% endblock %}

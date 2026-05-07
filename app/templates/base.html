@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title if title else "Task Allocation Assistant" }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            Task Allocation Assistant
+        </div>
+
+        <nav>
+            <a href="/">Dashboard</a>
+            <a href="/projects-ui">Projects</a>
+            <a href="/team-members-ui">Team Members</a>
+            <a href="/tasks-ui">Tasks</a>
+            <a href="/analytics-ui">Analytics</a>
+            <a href="/docs">Swagger</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        {% block content %}
+        {% endblock %}
+    </main>
+</body>
+</html>

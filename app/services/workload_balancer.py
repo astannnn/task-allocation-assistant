@@ -3,6 +3,25 @@ from sqlalchemy.orm import Session
 from app import models
 
 
+def get_workload_status(workload: int):
+    """
+    Classifies workload using a simple rule-based interpretation.
+
+    In this project, workload represents the number of active assigned tasks.
+    Therefore:
+    - 0 tasks means the member is underloaded
+    - 1-2 tasks means the member is balanced
+    - 3 or more tasks means the member is overloaded
+    """
+    if workload <= 0:
+        return "underloaded"
+
+    if workload <= 2:
+        return "balanced"
+
+    return "overloaded"
+
+
 def analyze_project_workload(project_id: int, db: Session):
     team_members = db.query(models.TeamMember).filter(
         models.TeamMember.project_id == project_id
@@ -28,22 +47,21 @@ def analyze_project_workload(project_id: int, db: Session):
         workload = member.workload
         total_workload += workload
 
-        if workload >= 0.8:
-            workload_status = "overloaded"
+        workload_status = get_workload_status(workload)
+
+        if workload_status == "overloaded":
             overloaded_members.append({
                 "team_member_id": member.id,
                 "name": member.name,
                 "workload": workload
             })
-        elif workload <= 0.3:
-            workload_status = "underloaded"
+
+        if workload_status == "underloaded":
             underloaded_members.append({
                 "team_member_id": member.id,
                 "name": member.name,
                 "workload": workload
             })
-        else:
-            workload_status = "balanced"
 
         members_data.append({
             "team_member_id": member.id,
@@ -63,6 +81,8 @@ def analyze_project_workload(project_id: int, db: Session):
         balance_status = "unbalanced"
     elif len(overloaded_members) > 0:
         balance_status = "high_workload_risk"
+    elif len(underloaded_members) > 0:
+        balance_status = "available_capacity"
     else:
         balance_status = "balanced"
 

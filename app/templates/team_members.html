@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">Team Members</h1>
+
+<section class="section">
+    <h2>Add Team Member</h2>
+    <p>
+        Team members have deep profiles used by the allocation algorithm:
+        skills, workload, reliability, availability, mood and dynamic status.
+    </p>
+
+    <form class="form" id="team-member-form">
+        <label>Project</label>
+        <select id="project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <label>Specialist Full Name</label>
+        <input id="member-name" type="text" list="member-name-options" placeholder="Select or type full name" required>
+        <datalist id="member-name-options"></datalist>
+
+        <label>Role</label>
+        <input id="member-role" type="text" list="member-role-options" placeholder="Select or type a role" required>
+        <datalist id="member-role-options"></datalist>
+
+        <label>Availability</label>
+        <input id="member-availability" type="number" min="0" max="1" step="0.1" placeholder="0.8" required>
+
+        <label>Workload</label>
+        <input id="member-workload" type="number" min="0" placeholder="0" required>
+
+        <label>Reliability</label>
+        <input id="member-reliability" type="number" min="0" max="1" step="0.1" placeholder="0.9" required>
+
+        <label>Dynamic Status</label>
+        <select id="member-dynamic-status" required>
+            <option value="available">available</option>
+            <option value="busy">busy</option>
+            <option value="focused">focused</option>
+            <option value="blocked">blocked</option>
+        </select>
+
+        <label>Mood State</label>
+        <select id="member-mood-state" required>
+            <option value="positive">positive</option>
+            <option value="neutral">neutral</option>
+            <option value="stressed">stressed</option>
+        </select>
+
+        <button type="submit">Add Team Member</button>
+    </form>
+
+    <p id="team-member-message" class="message"></p>
+</section>
+
+<section class="section">
+    <h2>Team Member Profiles</h2>
+    <p>Existing team members for the selected project.</p>
+
+    <button type="button" onclick="loadTeamMembers()">Refresh Team Members</button>
+
+    <div id="team-members-list" class="list">
+        Select a project to load team members.
+    </div>
+</section>
+
+<script>
+    function updateNameAndRoleOptions(members) {
+        const nameOptions = document.getElementById("member-name-options");
+        const roleOptions = document.getElementById("member-role-options");
+
+        const defaultRoles = [
+            "Backend Developer",
+            "Frontend Developer",
+            "Full Stack Developer",
+            "Data Analyst",
+            "Project Manager",
+            "QA Tester",
+            "UI/UX Designer",
+            "Technical Writer"
+        ];
+
+        const names = new Set();
+        const roles = new Set(defaultRoles);
+
+        members.forEach(member => {
+            if (member.name) {
+                names.add(member.name);
+            }
+
+            if (member.role) {
+                roles.add(member.role);
+            }
+        });
+
+        nameOptions.innerHTML = "";
+        roleOptions.innerHTML = "";
+
+        Array.from(names).sort().forEach(name => {
+            const option = document.createElement("option");
+            option.value = name;
+            nameOptions.appendChild(option);
+        });
+
+        Array.from(roles).sort().forEach(role => {
+            const option = document.createElement("option");
+            option.value = role;
+            roleOptions.appendChild(option);
+        });
+    }
+
+    async function loadProjectsForTeamMembers() {
+        const projectSelect = document.getElementById("project-id");
+
+        try {
+            const response = await fetch("/projects/");
+            const projects = await response.json();
+
+            projectSelect.innerHTML = '<option value="">Select project</option>';
+
+            projects.forEach(project => {
+                const option = document.createElement("option");
+                option.value = project.id;
+                option.textContent = `${project.id} - ${project.title}`;
+                projectSelect.appendChild(option);
+            });
+        } catch (error) {
+            projectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+        }
+    }
+
+    async function loadTeamMembers() {
+        const projectId = document.getElementById("project-id").value;
+        const list = document.getElementById("team-members-list");
+
+        if (!projectId) {
+            updateNameAndRoleOptions([]);
+            list.innerHTML = "<p>Please select a project first.</p>";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/team-members/project/${projectId}`);
+            const members = await response.json();
+
+            if (!members || members.length === 0) {
+                updateNameAndRoleOptions([]);
+                list.innerHTML = "<p>No team members found for this project.</p>";
+                return;
+            }
+
+            updateNameAndRoleOptions(members);
+
+            list.innerHTML = "";
+
+            members.forEach(member => {
+                const item = document.createElement("div");
+                item.className = "list-item";
+
+                item.innerHTML = `
+                    <h3>${member.name}</h3>
+                    <p><strong>Specialist ID:</strong> ${member.id}</p>
+                    <p><strong>Role:</strong> ${member.role}</p>
+                    <p><strong>Availability:</strong> ${member.availability}</p>
+                    <p><strong>Workload:</strong> ${member.workload}</p>
+                    <p><strong>Reliability:</strong> ${member.reliability}</p>
+                    <p><strong>Dynamic Status:</strong> ${member.dynamic_status}</p>
+                    <p><strong>Mood State:</strong> ${member.mood_state}</p>
+                `;
+
+                list.appendChild(item);
+            });
+        } catch (error) {
+            list.innerHTML = "<p class='error'>Failed to load team members.</p>";
+        }
+    }
+
+    document.getElementById("project-id").addEventListener("change", loadTeamMembers);
+
+    document.getElementById("team-member-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const projectId = document.getElementById("project-id").value;
+        const message = document.getElementById("team-member-message");
+
+        if (!projectId) {
+            message.textContent = "Please select a project.";
+            message.className = "message error";
+            return;
+        }
+
+        const payload = {
+            project_id: Number(projectId),
+            name: document.getElementById("member-name").value,
+            role: document.getElementById("member-role").value,
+            availability: Number(document.getElementById("member-availability").value),
+            workload: Number(document.getElementById("member-workload").value),
+            reliability: Number(document.getElementById("member-reliability").value),
+            dynamic_status: document.getElementById("member-dynamic-status").value,
+            mood_state: document.getElementById("member-mood-state").value
+        };
+
+        try {
+            const response = await fetch("/team-members/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to create team member.";
+                message.className = "message error";
+                return;
+            }
+
+            const createdMember = await response.json();
+
+            message.textContent = `Team member created successfully. ID: ${createdMember.id}`;
+            message.className = "message success";
+
+            document.getElementById("team-member-form").reset();
+            document.getElementById("project-id").value = projectId;
+
+            await loadTeamMembers();
+        } catch (error) {
+            message.textContent = "Error while creating team member.";
+            message.className = "message error";
+        }
+    });
+
+    loadProjectsForTeamMembers();
+    updateNameAndRoleOptions([]);
+</script>
+{% endblock %}

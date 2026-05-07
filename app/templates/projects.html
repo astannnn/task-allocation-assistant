@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">Projects</h1>
+
+<section class="section">
+    <h2>Create Project</h2>
+    <p>
+        Create a project directly from the web interface.
+        The data will be stored through the backend CRUD API.
+    </p>
+
+    <form class="form" id="project-form">
+        <label>Project Title</label>
+        <input id="project-title" type="text" placeholder="Website Development Project" required>
+
+        <label>Description</label>
+        <textarea id="project-description" placeholder="Short project description" required></textarea>
+
+        <label>Deadline</label>
+        <input id="project-deadline" type="date" required>
+
+        <button type="submit">Create Project</button>
+    </form>
+
+    <p id="project-message" class="message"></p>
+</section>
+
+<section class="section">
+    <h2>Project List</h2>
+    <p>Existing projects stored in the database.</p>
+
+    <div id="projects-list" class="list">
+        Loading projects...
+    </div>
+</section>
+
+<script>
+    async function loadProjects() {
+        const list = document.getElementById("projects-list");
+
+        try {
+            const response = await fetch("/projects/");
+            const projects = await response.json();
+
+            if (!projects || projects.length === 0) {
+                list.innerHTML = "<p>No projects found.</p>";
+                return;
+            }
+
+            list.innerHTML = "";
+
+            projects.forEach(project => {
+                const item = document.createElement("div");
+                item.className = "list-item";
+
+                item.innerHTML = `
+                    <h3>${project.title}</h3>
+                    <p><strong>ID:</strong> ${project.id}</p>
+                    <p><strong>Description:</strong> ${project.description || "No description"}</p>
+                    <p><strong>Deadline:</strong> ${project.deadline || "No deadline"}</p>
+                `;
+
+                list.appendChild(item);
+            });
+        } catch (error) {
+            list.innerHTML = "<p class='error'>Failed to load projects.</p>";
+        }
+    }
+
+    document.getElementById("project-form").addEventListener("submit", async function(event) {
+        event.preventDefault();
+
+        const title = document.getElementById("project-title").value;
+        const description = document.getElementById("project-description").value;
+        const deadline = document.getElementById("project-deadline").value;
+
+        const message = document.getElementById("project-message");
+
+        try {
+            const response = await fetch("/projects/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    title: title,
+                    description: description,
+                    deadline: deadline
+                })
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to create project.";
+                message.className = "message error";
+                return;
+            }
+
+            const createdProject = await response.json();
+
+            message.textContent = `Project created successfully. ID: ${createdProject.id}`;
+            message.className = "message success";
+
+            document.getElementById("project-form").reset();
+
+            await loadProjects();
+        } catch (error) {
+            message.textContent = "Error while creating project.";
+            message.className = "message error";
+        }
+    });
+
+    loadProjects();
+</script>
+{% endblock %}

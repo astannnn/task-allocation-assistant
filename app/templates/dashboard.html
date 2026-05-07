@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <h1>Task Allocation Assistant</h1>
+    <p>
+        Rule-based intelligent project management assistant for task allocation,
+        workload analysis, delayed task reassignment and project coordination.
+    </p>
+</section>
+
+<section class="cards">
+    <a href="/projects-ui" class="card">
+        <h2>Projects</h2>
+        <p>Create and manage projects.</p>
+    </a>
+
+    <a href="/team-members-ui" class="card">
+        <h2>Team Members</h2>
+        <p>Manage profiles, skills, workload, mood and dynamic status.</p>
+    </a>
+
+    <a href="/tasks-ui" class="card">
+        <h2>Tasks</h2>
+        <p>Create tasks, define required skills and run allocation.</p>
+    </a>
+
+    <a href="/analytics-ui" class="card">
+        <h2>Analytics</h2>
+        <p>View workload, conflicts and redistribution suggestions.</p>
+    </a>
+</section>
+{% endblock %}
