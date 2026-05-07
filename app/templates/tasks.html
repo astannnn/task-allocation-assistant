@@ -249,17 +249,42 @@
             const membersResponse = await fetch(`/team-members/project/${projectId}`);
             const members = await membersResponse.json();
 
+            const skillsResponse = await fetch("/skills/");
+            const skills = await skillsResponse.json();
+
             const membersMap = {};
             members.forEach(member => {
                 membersMap[member.id] = member.name;
             });
 
+            const skillsMap = {};
+            skills.forEach(skill => {
+                skillsMap[skill.id] = skill.name || skill.skill_name || `Skill ID ${skill.id}`;
+            });
+
             list.innerHTML = "";
 
             for (const task of tasks) {
+                let requiredSkillsText = "No required skills";
                 let assignmentText = "Not assigned";
                 let assignmentStatus = "none";
                 let assignmentScore = "none";
+
+                try {
+                    const requiredSkillsResponse = await fetch(`/tasks/${task.id}/required-skills`);
+                    const requiredSkills = await requiredSkillsResponse.json();
+
+                    if (requiredSkills && requiredSkills.length > 0) {
+                        requiredSkillsText = requiredSkills
+                            .map(requiredSkill => {
+                                const skillName = skillsMap[requiredSkill.skill_id] || `Skill ID ${requiredSkill.skill_id}`;
+                                return `${skillName} (${requiredSkill.required_level})`;
+                            })
+                            .join(", ");
+                    }
+                } catch (error) {
+                    requiredSkillsText = "Failed to load required skills";
+                }
 
                 try {
                     const assignmentResponse = await fetch(`/assignments/task/${task.id}`);
@@ -291,6 +316,7 @@
 
                     <hr>
 
+                    <p><strong>Required Skills:</strong> ${requiredSkillsText}</p>
                     <p><strong>Assigned Member:</strong> ${assignmentText}</p>
                     <p><strong>Assignment Status:</strong> ${assignmentStatus}</p>
                     <p><strong>Assignment Score:</strong> ${assignmentScore}</p>
