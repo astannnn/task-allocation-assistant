@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import RedirectResponse
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -28,6 +29,9 @@ app = FastAPI(
     title="Task Allocation Assistant",
     description="A decision-support assistant for team task allocation and project management.",
     version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(
@@ -63,6 +67,36 @@ def get_current_user(request: Request, db: Session):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 
+def require_login(request: Request, db: Session):
+    current_user = get_current_user(request, db)
+
+    if not current_user:
+        return None, RedirectResponse(url="/login", status_code=303)
+
+    return current_user, None
+
+
+def require_manager(request: Request, db: Session):
+    current_user = get_current_user(request, db)
+
+    if not current_user:
+        return None, RedirectResponse(url="/login", status_code=303)
+
+    if current_user.role != "manager":
+        return None, RedirectResponse(url="/my-tasks", status_code=303)
+
+    return current_user, None
+
+
+def require_team_member_or_manager(request: Request, db: Session):
+    current_user = get_current_user(request, db)
+
+    if not current_user:
+        return None, RedirectResponse(url="/login", status_code=303)
+
+    return current_user, None
+
+
 def redirect_after_login(user: models.User):
     if user.role == "manager":
         return RedirectResponse(url="/", status_code=303)
@@ -79,7 +113,8 @@ def register_page(request: Request):
         {
             "request": request,
             "title": "Register",
-            "error": None
+            "error": None,
+            "current_user": None
         }
     )
 
@@ -103,7 +138,8 @@ def register_user_ui(
             {
                 "request": request,
                 "title": "Register",
-                "error": "User with this email already exists"
+                "error": "User with this email already exists",
+                "current_user": None
             }
         )
 
@@ -113,7 +149,8 @@ def register_user_ui(
             {
                 "request": request,
                 "title": "Register",
-                "error": "Invalid role"
+                "error": "Invalid role",
+                "current_user": None
             }
         )
 
@@ -141,7 +178,8 @@ def login_page(request: Request):
         {
             "request": request,
             "title": "Login",
-            "error": None
+            "error": None,
+            "current_user": None
         }
     )
 
@@ -163,7 +201,8 @@ def login_user_ui(
             {
                 "request": request,
                 "title": "Login",
-                "error": "Invalid email or password"
+                "error": "Invalid email or password",
+                "current_user": None
             }
         )
 
@@ -179,15 +218,17 @@ def logout_user(request: Request):
     return RedirectResponse(url="/login", status_code=303)
 
 
+# ---------- Team Member UI Routes ----------
+
 @app.get("/my-tasks")
 def my_tasks_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_team_member_or_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     team_members = db.query(models.TeamMember).filter(
         models.TeamMember.user_id == current_user.id
@@ -212,17 +253,64 @@ def my_tasks_ui(
         }
     )
 
+
+@app.post("/my-tasks/{assignment_id}/status")
+def update_my_task_status(
+    assignment_id: int,
+    new_status: str = Form(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_team_member_or_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    assignment = db.query(models.Assignment).join(
+        models.TeamMember,
+        models.Assignment.team_member_id == models.TeamMember.id
+    ).filter(
+        models.Assignment.id == assignment_id,
+        models.TeamMember.user_id == current_user.id
+    ).first()
+
+    if not assignment:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    allowed_statuses = ["in_progress", "completed"]
+
+    if new_status not in allowed_statuses:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    current_task_status = assignment.task.status
+
+    if current_task_status == "assigned" and new_status == "in_progress":
+        assignment.task.status = "in_progress"
+        assignment.status = "active"
+
+    elif current_task_status == "in_progress" and new_status == "completed":
+        assignment.task.status = "completed"
+        assignment.status = "completed"
+
+    else:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    db.commit()
+
+    return RedirectResponse(url="/my-tasks", status_code=303)
+
+
 @app.get("/notifications-ui")
 def notifications_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_team_member_or_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
-    notifications = db.query(models.Notification).filter(
+    notifications_list = db.query(models.Notification).filter(
         models.Notification.user_id == current_user.id
     ).order_by(
         models.Notification.created_at.desc()
@@ -234,10 +322,31 @@ def notifications_ui(
             "request": request,
             "title": "Notifications",
             "current_user": current_user,
-            "notifications": notifications
+            "notifications": notifications_list
         }
     )
 
+@app.post("/notifications-ui/{notification_id}/read")
+def mark_notification_as_read_ui(
+    notification_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_team_member_or_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    notification = db.query(models.Notification).filter(
+        models.Notification.id == notification_id,
+        models.Notification.user_id == current_user.id
+    ).first()
+
+    if notification:
+        notification.is_read = 1
+        db.commit()
+
+    return RedirectResponse(url="/notifications-ui", status_code=303)
 
 # ---------- Main UI Routes ----------
 
@@ -246,10 +355,10 @@ def dashboard_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -266,10 +375,10 @@ def projects_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "projects.html",
@@ -286,10 +395,10 @@ def team_members_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "team_members.html",
@@ -306,10 +415,10 @@ def skills_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "skills.html",
@@ -326,10 +435,10 @@ def tasks_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "tasks.html",
@@ -346,10 +455,10 @@ def analytics_ui(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(request, db)
+    current_user, redirect_response = require_manager(request, db)
 
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=303)
+    if redirect_response:
+        return redirect_response
 
     return templates.TemplateResponse(
         "analytics.html",
@@ -359,6 +468,37 @@ def analytics_ui(
             "current_user": current_user
         }
     )
+
+
+# ---------- Protected Swagger Routes ----------
+
+@app.get("/docs", include_in_schema=False)
+def protected_swagger_ui(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Task Allocation Assistant - Swagger UI"
+    )
+
+
+@app.get("/openapi.json", include_in_schema=False)
+def protected_openapi_schema(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    return app.openapi()
 
 
 # ---------- API Utility Routes ----------

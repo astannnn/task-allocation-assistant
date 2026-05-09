@@ -501,3 +501,72 @@ body {
     background: #fef2f2;
     color: #b91c1c;
 }
+
+/* Notifications action column */
+
+.notifications-table-fixed th:nth-child(1),
+.notifications-table-fixed td:nth-child(1) {
+    width: 48% !important;
+}
+
+.notifications-table-fixed th:nth-child(2),
+.notifications-table-fixed td:nth-child(2) {
+    width: 14% !important;
+}
+
+.notifications-table-fixed th:nth-child(3),
+.notifications-table-fixed td:nth-child(3) {
+    width: 16% !important;
+}
+
+.notifications-table-fixed th:nth-child(4),
+.notifications-table-fixed td:nth-child(4) {
+    width: 10% !important;
+}
+
+.notifications-table-fixed th:nth-child(5),
+.notifications-table-fixed td:nth-child(5) {
+    width: 12% !important;
+}
+
+/* Wider notifications page with visible action column */
+
+.notifications-wide-page {
+    max-width: 1700px !important;
+    width: 96vw !important;
+}
+
+.notifications-table-fixed {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
+.notifications-table-fixed th:nth-child(1),
+.notifications-table-fixed td:nth-child(1) {
+    width: 45% !important;
+}
+
+.notifications-table-fixed th:nth-child(2),
+.notifications-table-fixed td:nth-child(2) {
+    width: 13% !important;
+}
+
+.notifications-table-fixed th:nth-child(3),
+.notifications-table-fixed td:nth-child(3) {
+    width: 15% !important;
+}
+
+.notifications-table-fixed th:nth-child(4),
+.notifications-table-fixed td:nth-child(4) {
+    width: 10% !important;
+}
+
+.notifications-table-fixed th:nth-child(5),
+.notifications-table-fixed td:nth-child(5) {
+    width: 17% !important;
+}
+
+.notification-read-button {
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+}

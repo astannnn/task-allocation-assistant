@@ -3,6 +3,177 @@
 {% block content %}
 <h1 class="page-title">Tasks</h1>
 
+<style>
+    .progress-panel {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 24px;
+        margin-top: 20px;
+    }
+
+    .progress-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .progress-card {
+        border: 1px solid #e5e7eb;
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        cursor: pointer;
+        text-align: left;
+        transition: 0.2s ease;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .progress-card:hover {
+        transform: translateY(-2px);
+        border-color: #2563eb;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+    }
+
+    .progress-card h3 {
+        color: #2563eb;
+        font-size: 26px;
+        margin: 0 0 8px 0;
+    }
+
+    .progress-card p {
+        margin: 0;
+        color: #111827;
+        font-weight: 600;
+    }
+
+    .progress-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 18px 0;
+        flex-wrap: wrap;
+    }
+
+    .progress-toolbar h3 {
+        margin: 0;
+    }
+
+    .small-button {
+        border: none;
+        background: #2563eb;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .small-button:hover {
+        background: #1d4ed8;
+    }
+
+    .progress-table-wrapper {
+        overflow-x: auto;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+    }
+
+    .progress-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+    }
+
+    .progress-table th {
+        background: #f1f5f9;
+        color: #111827;
+        text-align: left;
+        padding: 14px 16px;
+        font-weight: 700;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .progress-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #111827;
+        vertical-align: middle;
+    }
+
+    .progress-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .task-title-cell {
+        font-weight: 600;
+    }
+
+    .status-pill,
+    .priority-pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-open,
+    .status-assigned {
+        background: #eef2ff;
+        color: #3730a3;
+    }
+
+    .status-in_progress {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .status-completed {
+        background: #ecfdf5;
+        color: #047857;
+    }
+
+    .status-delayed {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    .status-manual_review {
+        background: #fdf4ff;
+        color: #a21caf;
+    }
+
+    .status-none {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+
+    .priority-low {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .priority-medium {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .priority-high {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .priority-critical {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+</style>
+
 <section class="section">
     <h2>Create Single Task</h2>
     <p>
@@ -57,8 +228,29 @@
 </section>
 
 <section class="section">
+    <h2>Task Progress Overview</h2>
+    <p>
+        Manager monitoring view showing how many tasks are not started,
+        in progress, completed, delayed, or waiting for manual review.
+    </p>
+
+    <form class="form">
+        <label>Project</label>
+        <select id="monitoring-project-id" required>
+            <option value="">Select project</option>
+        </select>
+
+        <button type="button" onclick="loadTasks()">Load Progress</button>
+    </form>
+
+    <div id="task-progress-overview" class="progress-panel">
+        Select a project to load task progress.
+    </div>
+</section>
+
+<section class="section">
     <h2>Task List</h2>
-    <p>Tasks for the selected project.</p>
+    <p>Tasks for the selected monitoring project.</p>
 
     <button type="button" onclick="loadTasks()">Refresh Tasks</button>
 
@@ -165,6 +357,7 @@
     async function loadProjectsForTasks() {
         const taskProjectSelect = document.getElementById("task-project-id");
         const templateProjectSelect = document.getElementById("template-project-id");
+        const monitoringProjectSelect = document.getElementById("monitoring-project-id");
 
         try {
             const response = await fetch("/projects/");
@@ -172,6 +365,7 @@
 
             taskProjectSelect.innerHTML = '<option value="">Select project</option>';
             templateProjectSelect.innerHTML = '<option value="">Select project</option>';
+            monitoringProjectSelect.innerHTML = '<option value="">Select project</option>';
 
             projects.forEach(project => {
                 const taskOption = document.createElement("option");
@@ -183,10 +377,16 @@
                 templateOption.value = project.id;
                 templateOption.textContent = `${project.id} - ${project.title}`;
                 templateProjectSelect.appendChild(templateOption);
+
+                const monitoringOption = document.createElement("option");
+                monitoringOption.value = project.id;
+                monitoringOption.textContent = `${project.id} - ${project.title}`;
+                monitoringProjectSelect.appendChild(monitoringOption);
             });
         } catch (error) {
             taskProjectSelect.innerHTML = '<option value="">Failed to load projects</option>';
             templateProjectSelect.innerHTML = '<option value="">Failed to load projects</option>';
+            monitoringProjectSelect.innerHTML = '<option value="">Failed to load projects</option>';
         }
     }
 
@@ -229,11 +429,13 @@
     }
 
     async function loadTasks() {
-        const projectId = document.getElementById("task-project-id").value;
+        const projectId = document.getElementById("monitoring-project-id").value;
         const list = document.getElementById("tasks-list");
+        const progressOverview = document.getElementById("task-progress-overview");
 
         if (!projectId) {
-            list.innerHTML = "<p>Please select a project first.</p>";
+            list.innerHTML = "<p>Please select a monitoring project first.</p>";
+            progressOverview.innerHTML = "<p>Please select a monitoring project first.</p>";
             return;
         }
 
@@ -243,6 +445,7 @@
 
             if (!tasks || tasks.length === 0) {
                 list.innerHTML = "<p>No tasks found for this project.</p>";
+                progressOverview.innerHTML = "<p>No task progress data available for this project.</p>";
                 return;
             }
 
@@ -263,6 +466,16 @@
             });
 
             list.innerHTML = "";
+
+            const progressStats = {
+                not_started: 0,
+                in_progress: 0,
+                completed: 0,
+                delayed: 0,
+                manual_review: 0
+            };
+
+            const progressRows = [];
 
             for (const task of tasks) {
                 let requiredSkillsText = "No required skills";
@@ -302,14 +515,37 @@
                     assignmentText = "Failed to load assignment";
                 }
 
+                let progressCategory = "not_started";
+
+                if (task.status === "in_progress") {
+                    progressCategory = "in_progress";
+                } else if (task.status === "completed") {
+                    progressCategory = "completed";
+                } else if (task.status === "delayed") {
+                    progressCategory = "delayed";
+                } else if (task.status === "manual_review") {
+                    progressCategory = "manual_review";
+                }
+
+                progressStats[progressCategory] += 1;
+
+                progressRows.push({
+                    title: task.title,
+                    assignedMember: assignmentText,
+                    taskStatus: task.status,
+                    assignmentStatus: assignmentStatus,
+                    priority: task.priority,
+                    category: progressCategory
+                });
+
                 const item = document.createElement("div");
                 item.className = "list-item";
 
                 item.innerHTML = `
                     <h3>${task.title}</h3>
                     <p><strong>Task ID:</strong> ${task.id}</p>
-                    <p><strong>Status:</strong> ${task.status}</p>
-                    <p><strong>Priority:</strong> ${task.priority}</p>
+                    <p><strong>Status:</strong> ${formatStatus(task.status)}</p>
+                    <p><strong>Priority:</strong> ${formatPriority(task.priority)}</p>
                     <p><strong>Deadline:</strong> ${task.deadline}</p>
                     <p><strong>Estimated Effort:</strong> ${task.estimated_effort}</p>
                     <p><strong>Description:</strong> ${task.description || "No description"}</p>
@@ -318,7 +554,7 @@
 
                     <p><strong>Required Skills:</strong> ${requiredSkillsText}</p>
                     <p><strong>Assigned Member:</strong> ${assignmentText}</p>
-                    <p><strong>Assignment Status:</strong> ${assignmentStatus}</p>
+                    <p><strong>Assignment Status:</strong> ${formatStatus(assignmentStatus)}</p>
                     <p><strong>Assignment Score:</strong> ${assignmentScore}</p>
 
                     <button type="button" onclick="selectTaskForAllocation(${task.id})">Select for Allocation</button>
@@ -326,9 +562,130 @@
 
                 list.appendChild(item);
             }
+
+            window.currentProgressRows = progressRows;
+
+            progressOverview.innerHTML = `
+                <div class="progress-grid">
+                    <button type="button" class="progress-card" onclick="filterTaskProgress('not_started')">
+                        <h3>${progressStats.not_started}</h3>
+                        <p>Not Started</p>
+                    </button>
+
+                    <button type="button" class="progress-card" onclick="filterTaskProgress('in_progress')">
+                        <h3>${progressStats.in_progress}</h3>
+                        <p>In Progress</p>
+                    </button>
+
+                    <button type="button" class="progress-card" onclick="filterTaskProgress('completed')">
+                        <h3>${progressStats.completed}</h3>
+                        <p>Completed</p>
+                    </button>
+
+                    <button type="button" class="progress-card" onclick="filterTaskProgress('delayed')">
+                        <h3>${progressStats.delayed}</h3>
+                        <p>Delayed</p>
+                    </button>
+
+                    <button type="button" class="progress-card" onclick="filterTaskProgress('manual_review')">
+                        <h3>${progressStats.manual_review}</h3>
+                        <p>Manual Review</p>
+                    </button>
+                </div>
+
+                <div class="progress-toolbar">
+                    <h3 id="progress-filter-title">All Tasks</h3>
+                    <button type="button" class="small-button" onclick="filterTaskProgress('all')">
+                        Show All Tasks
+                    </button>
+                </div>
+
+                <div class="progress-table-wrapper">
+                    <table class="progress-table">
+                        <thead>
+                            <tr>
+                                <th>Task</th>
+                                <th>Assigned To</th>
+                                <th>Task Status</th>
+                                <th>Assignment Status</th>
+                                <th>Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody id="progress-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            filterTaskProgress("all");
         } catch (error) {
             list.innerHTML = "<p class='error'>Failed to load tasks.</p>";
+            progressOverview.innerHTML = "<p class='error'>Failed to load task progress.</p>";
         }
+    }
+
+    function formatStatus(status) {
+        const safeStatus = status || "none";
+        const statusClass = `status-${safeStatus}`;
+
+        return `<span class="status-pill ${statusClass}">${safeStatus}</span>`;
+    }
+
+    function formatPriority(priority) {
+        const safePriority = priority || "medium";
+        const priorityClass = `priority-${safePriority}`;
+
+        return `<span class="priority-pill ${priorityClass}">${safePriority}</span>`;
+    }
+
+    function filterTaskProgress(category) {
+        const rows = window.currentProgressRows || [];
+        const tableBody = document.getElementById("progress-table-body");
+        const title = document.getElementById("progress-filter-title");
+
+        if (!tableBody || !title) {
+            return;
+        }
+
+        let filteredRows = rows;
+        let titleText = "All Tasks";
+
+        if (category !== "all") {
+            filteredRows = rows.filter(row => row.category === category);
+
+            if (category === "not_started") {
+                titleText = "Not Started Tasks";
+            } else if (category === "in_progress") {
+                titleText = "In Progress Tasks";
+            } else if (category === "completed") {
+                titleText = "Completed Tasks";
+            } else if (category === "delayed") {
+                titleText = "Delayed Tasks";
+            } else if (category === "manual_review") {
+                titleText = "Manual Review Tasks";
+            }
+        }
+
+        title.textContent = titleText;
+
+        if (filteredRows.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5">No tasks in this category.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = filteredRows.map(row => `
+            <tr>
+                <td class="task-title-cell">${row.title}</td>
+                <td>${row.assignedMember}</td>
+                <td>${formatStatus(row.taskStatus)}</td>
+                <td>${formatStatus(row.assignmentStatus)}</td>
+                <td>${formatPriority(row.priority)}</td>
+            </tr>
+        `).join("");
     }
 
     function selectTaskForAllocation(taskId) {
@@ -397,7 +754,7 @@
         }
     });
 
-    document.getElementById("task-project-id").addEventListener("change", loadTasks);
+    document.getElementById("monitoring-project-id").addEventListener("change", loadTasks);
 
     document.querySelectorAll(".template-component").forEach(checkbox => {
         checkbox.addEventListener("change", updateComponentsSelectedText);
@@ -467,7 +824,7 @@
                 if (!skillResponse.ok) {
                     message.textContent = `Task created, but failed to attach required skill ID: ${skillId}`;
                     message.className = "message error";
-                    await loadTasks();
+                    await loadTasksIfSameMonitoringProject(projectId);
                     return;
                 }
             }
@@ -482,12 +839,20 @@
 
             await loadSkillsForTaskForm();
             updateRequiredSkillsSelectedText();
-            await loadTasks();
+            await loadTasksIfSameMonitoringProject(projectId);
         } catch (error) {
             message.textContent = "Error while creating task.";
             message.className = "message error";
         }
     });
+
+    async function loadTasksIfSameMonitoringProject(projectId) {
+        const monitoringProjectId = document.getElementById("monitoring-project-id").value;
+
+        if (monitoringProjectId === String(projectId)) {
+            await loadTasks();
+        }
+    }
 
     async function previewAllocation() {
         const taskId = document.getElementById("allocation-task-id").value;
@@ -626,6 +991,7 @@
             `;
 
             document.getElementById("task-project-id").value = projectId;
+            document.getElementById("monitoring-project-id").value = projectId;
             updateComponentsSelectedText();
             await loadTasks();
         } catch (error) {

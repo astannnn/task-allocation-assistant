@@ -2,6 +2,98 @@
 
 {% block content %}
 <div class="my-tasks-page notifications-wide-page">
+    <style>
+        .container {
+            max-width: 1700px !important;
+            width: 96vw !important;
+        }
+
+        .notifications-wide-page {
+            max-width: 1600px !important;
+            width: 100% !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .notifications-table-fixed {
+            width: 100% !important;
+            table-layout: fixed !important;
+        }
+
+        .notifications-table-fixed th:nth-child(1),
+        .notifications-table-fixed td:nth-child(1) {
+            width: 43% !important;
+        }
+
+        .notifications-table-fixed th:nth-child(2),
+        .notifications-table-fixed td:nth-child(2) {
+            width: 13% !important;
+        }
+
+        .notifications-table-fixed th:nth-child(3),
+        .notifications-table-fixed td:nth-child(3) {
+            width: 15% !important;
+        }
+
+        .notifications-table-fixed th:nth-child(4),
+        .notifications-table-fixed td:nth-child(4) {
+            width: 11% !important;
+        }
+
+        .notifications-table-fixed th:nth-child(5),
+        .notifications-table-fixed td:nth-child(5) {
+            width: 18% !important;
+        }
+
+        .notification-status-read {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #ecfdf5;
+            color: #047857;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .notification-status-unread {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #fff7ed;
+            color: #c2410c;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .notification-read-button {
+            border: none;
+            background: #2563eb;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        .notification-read-button:hover {
+            background: #1d4ed8;
+        }
+
+        .notification-action-muted {
+            color: #6b7280;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .notification-message-cell {
+            white-space: normal !important;
+            word-break: break-word !important;
+            line-height: 1.4;
+        }
+    </style>
+
     <div class="my-tasks-header">
         <div>
             <h1>Notifications</h1>
@@ -16,42 +108,60 @@
     </div>
 
     {% if notifications %}
-        <div class="my-tasks-card">
-            <table class="my-tasks-table notifications-table-fixed">
-                <thead>
-                    <tr>
-                        <th class="notification-message-col">Message</th>
-                        <th>Type</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+    <div class="my-tasks-card">
+        <table class="my-tasks-table notifications-table-fixed">
+            <thead>
+                <tr>
+                    <th class="notification-message-col">Message</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
 
-                <tbody>
-                    {% for notification in notifications %}
-                        <tr>
-                            <td class="task-name notification-message-cell">
-                                {{ notification.message }}
-                            </td>
-                            <td>{{ notification.type }}</td>
-                            <td>{{ notification.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-                            <td>
-                                {% if notification.is_read == 1 %}
-                                    Read
-                                {% else %}
-                                    Unread
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+            <tbody>
+                {% for notification in notifications %}
+                <tr>
+                    <td class="task-name notification-message-cell">
+                        {{ notification.message }}
+                    </td>
+
+                    <td>{{ notification.type }}</td>
+
+                    <td>
+                        {{ notification.created_at.strftime("%Y-%m-%d %H:%M") }}
+                    </td>
+
+                    <td>
+                        {% if notification.is_read == 1 %}
+                        <span class="notification-status-read">Read</span>
+                        {% else %}
+                        <span class="notification-status-unread">Unread</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if notification.is_read == 0 %}
+                        <form method="post" action="/notifications-ui/{{ notification.id }}/read">
+                            <button type="submit" class="notification-read-button">
+                                Mark as read
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="notification-action-muted">Already read</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-        <div class="my-tasks-empty">
-            <h3>No notifications yet</h3>
-            <p>You do not have notifications connected to your account.</p>
-        </div>
+    <div class="my-tasks-empty">
+        <h3>No notifications yet</h3>
+        <p>You do not have notifications connected to your account.</p>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
