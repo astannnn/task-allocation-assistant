@@ -82,6 +82,20 @@
             .replaceAll("'", "&#039;");
     }
 
+    function formatNumber(value, digits = 1) {
+        if (value === null || value === undefined || value === "") {
+            return "N/A";
+        }
+
+        const numberValue = Number(value);
+
+        if (Number.isNaN(numberValue)) {
+            return value;
+        }
+
+        return numberValue.toFixed(digits);
+    }
+
     function updateNameAndRoleOptions(members) {
         const nameOptions = document.getElementById("member-name-options");
         const roleOptions = document.getElementById("member-role-options");
@@ -174,14 +188,18 @@
                 const item = document.createElement("div");
                 item.className = "list-item team-member-card";
 
+                const availabilityValue = formatNumber(member.availability, 1);
+                const workloadValue = formatNumber(member.workload, 1);
+                const reliabilityValue = formatNumber(member.reliability, 2);
+
                 item.innerHTML = `
                     <div class="team-member-card-header">
-                        <div>
+                        <div class="team-member-title-block">
                             <h3>${escapeHtml(member.name)}</h3>
                             <p class="muted-text">${escapeHtml(member.role)}</p>
                         </div>
 
-                        <div class="card-actions">
+                        <div class="card-actions team-member-actions">
                             <a class="secondary-link-button" href="/team-members-ui/${member.id}">
                                 View Full Profile
                             </a>
@@ -198,9 +216,9 @@
 
                     <div class="profile-mini-grid">
                         <p><strong>Specialist ID:</strong> ${member.id}</p>
-                        <p><strong>Availability:</strong> ${member.availability}</p>
-                        <p><strong>Workload:</strong> ${member.workload}</p>
-                        <p><strong>Reliability:</strong> ${member.reliability}</p>
+                        <p><strong>Availability:</strong> ${availabilityValue}</p>
+                        <p><strong>Workload:</strong> ${workloadValue}</p>
+                        <p><strong>Reliability:</strong> ${reliabilityValue}</p>
                         <p><strong>Dynamic Status:</strong> ${escapeHtml(member.dynamic_status)}</p>
                         <p><strong>Mood State:</strong> ${escapeHtml(member.mood_state)}</p>
                     </div>

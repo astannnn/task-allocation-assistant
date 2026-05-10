@@ -932,3 +932,35 @@ body {
     padding: 8px 10px !important;
     font-size: 13px !important;
 }
+
+/* Fix team member card action buttons alignment */
+
+.team-member-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.card-actions a,
+.card-actions button {
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    white-space: nowrap;
+}
+
+.card-actions form {
+    margin: 0 !important;
+    display: inline-flex;
+    align-items: center;
+}
