@@ -104,6 +104,45 @@ def redirect_after_login(user: models.User):
     return RedirectResponse(url="/my-tasks", status_code=303)
 
 
+def calculate_employee_workload_status(active_assignments_count: int):
+    if active_assignments_count == 0:
+        return "underloaded"
+
+    if active_assignments_count <= 2:
+        return "balanced"
+
+    return "overloaded"
+
+
+def calculate_completion_rate(total_assignments: int, completed_assignments: int):
+    if total_assignments == 0:
+        return 0
+
+    return round((completed_assignments / total_assignments) * 100, 1)
+
+
+def get_assignment_score_safely(assignment):
+    score_fields = ["score", "allocation_score", "matching_score"]
+
+    for field in score_fields:
+        score_value = getattr(assignment, field, None)
+
+        if score_value is not None:
+            return score_value
+
+    return None
+
+
+def release_task_from_assignment(assignment):
+    if assignment.task and assignment.task.status in [
+        "assigned",
+        "in_progress",
+        "delayed",
+        "manual_review"
+    ]:
+        assignment.task.status = "open"
+
+
 # ---------- Auth UI Routes ----------
 
 @app.get("/register")
@@ -125,7 +164,7 @@ def register_user_ui(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-    role: str = Form(...),
+    role: str = Form("team_member"),
     db: Session = Depends(get_db)
 ):
     existing_user = db.query(models.User).filter(
@@ -143,22 +182,16 @@ def register_user_ui(
             }
         )
 
-    if role not in ["manager", "team_member"]:
-        return templates.TemplateResponse(
-            "register.html",
-            {
-                "request": request,
-                "title": "Register",
-                "error": "Invalid role",
-                "current_user": None
-            }
-        )
+    # Security rule:
+    # Public registration always creates only team_member accounts.
+    # Manager accounts must be predefined or created administratively.
+    user_role = "team_member"
 
     user = models.User(
         name=name,
         email=email,
         password_hash=hash_password(password),
-        role=role
+        role=user_role
     )
 
     db.add(user)
@@ -235,6 +268,7 @@ def my_tasks_ui(
     ).all()
 
     team_member_ids = [member.id for member in team_members]
+    primary_team_member = team_members[0] if team_members else None
 
     if team_member_ids:
         assignments = db.query(models.Assignment).filter(
@@ -249,7 +283,8 @@ def my_tasks_ui(
             "request": request,
             "title": "My Tasks",
             "current_user": current_user,
-            "assignments": assignments
+            "assignments": assignments,
+            "primary_team_member": primary_team_member
         }
     )
 
@@ -300,6 +335,43 @@ def update_my_task_status(
     return RedirectResponse(url="/my-tasks", status_code=303)
 
 
+@app.post("/my-profile/status")
+def update_my_profile_status(
+    request: Request,
+    dynamic_status: str = Form(...),
+    mood_state: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_team_member_or_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    allowed_dynamic_statuses = ["available", "busy", "focused", "blocked"]
+    allowed_mood_states = ["positive", "neutral", "stressed"]
+
+    if dynamic_status not in allowed_dynamic_statuses:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    if mood_state not in allowed_mood_states:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    team_members = db.query(models.TeamMember).filter(
+        models.TeamMember.user_id == current_user.id
+    ).all()
+
+    if not team_members:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    for team_member in team_members:
+        team_member.dynamic_status = dynamic_status
+        team_member.mood_state = mood_state
+
+    db.commit()
+
+    return RedirectResponse(url="/my-tasks", status_code=303)
+
+
 @app.get("/notifications-ui")
 def notifications_ui(
     request: Request,
@@ -310,11 +382,16 @@ def notifications_ui(
     if redirect_response:
         return redirect_response
 
-    notifications_list = db.query(models.Notification).filter(
-        models.Notification.user_id == current_user.id
-    ).order_by(
-        models.Notification.created_at.desc()
-    ).all()
+    if current_user.role == "manager":
+        notifications_list = db.query(models.Notification).order_by(
+            models.Notification.created_at.desc()
+        ).all()
+    else:
+        notifications_list = db.query(models.Notification).filter(
+            models.Notification.user_id == current_user.id
+        ).order_by(
+            models.Notification.created_at.desc()
+        ).all()
 
     return templates.TemplateResponse(
         "notifications.html",
@@ -325,6 +402,7 @@ def notifications_ui(
             "notifications": notifications_list
         }
     )
+
 
 @app.post("/notifications-ui/{notification_id}/read")
 def mark_notification_as_read_ui(
@@ -337,16 +415,22 @@ def mark_notification_as_read_ui(
     if redirect_response:
         return redirect_response
 
-    notification = db.query(models.Notification).filter(
-        models.Notification.id == notification_id,
-        models.Notification.user_id == current_user.id
-    ).first()
+    if current_user.role == "manager":
+        notification = db.query(models.Notification).filter(
+            models.Notification.id == notification_id
+        ).first()
+    else:
+        notification = db.query(models.Notification).filter(
+            models.Notification.id == notification_id,
+            models.Notification.user_id == current_user.id
+        ).first()
 
     if notification:
         notification.is_read = 1
         db.commit()
 
     return RedirectResponse(url="/notifications-ui", status_code=303)
+
 
 # ---------- Main UI Routes ----------
 
@@ -390,6 +474,64 @@ def projects_ui(
     )
 
 
+@app.post("/projects-ui/{project_id}/delete")
+def delete_project_ui(
+    project_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id
+    ).first()
+
+    if not project:
+        return RedirectResponse(url="/projects-ui", status_code=303)
+
+    project_tasks = db.query(models.Task).filter(
+        models.Task.project_id == project_id
+    ).all()
+
+    project_task_ids = [task.id for task in project_tasks]
+
+    if project_task_ids:
+        db.query(models.Assignment).filter(
+            models.Assignment.task_id.in_(project_task_ids)
+        ).delete(synchronize_session=False)
+
+        db.query(models.TaskRequiredSkill).filter(
+            models.TaskRequiredSkill.task_id.in_(project_task_ids)
+        ).delete(synchronize_session=False)
+
+    project_members = db.query(models.TeamMember).filter(
+        models.TeamMember.project_id == project_id
+    ).all()
+
+    project_member_ids = [member.id for member in project_members]
+
+    if project_member_ids:
+        db.query(models.TeamMemberSkill).filter(
+            models.TeamMemberSkill.team_member_id.in_(project_member_ids)
+        ).delete(synchronize_session=False)
+
+    db.query(models.Task).filter(
+        models.Task.project_id == project_id
+    ).delete(synchronize_session=False)
+
+    db.query(models.TeamMember).filter(
+        models.TeamMember.project_id == project_id
+    ).delete(synchronize_session=False)
+
+    db.delete(project)
+    db.commit()
+
+    return RedirectResponse(url="/projects-ui", status_code=303)
+
+
 @app.get("/team-members-ui")
 def team_members_ui(
     request: Request,
@@ -406,6 +548,166 @@ def team_members_ui(
             "request": request,
             "title": "Team Members",
             "current_user": current_user
+        }
+    )
+
+
+@app.post("/team-members-ui/{team_member_id}/delete")
+def delete_team_member_ui(
+    team_member_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    team_member = db.query(models.TeamMember).filter(
+        models.TeamMember.id == team_member_id
+    ).first()
+
+    if not team_member:
+        return RedirectResponse(url="/team-members-ui", status_code=303)
+
+    member_assignments = db.query(models.Assignment).filter(
+        models.Assignment.team_member_id == team_member_id
+    ).all()
+
+    for assignment in member_assignments:
+        release_task_from_assignment(assignment)
+        db.delete(assignment)
+
+    db.query(models.TeamMemberSkill).filter(
+        models.TeamMemberSkill.team_member_id == team_member_id
+    ).delete(synchronize_session=False)
+
+    db.delete(team_member)
+    db.commit()
+
+    return RedirectResponse(url="/team-members-ui", status_code=303)
+
+
+@app.get("/team-members-ui/{team_member_id}")
+def team_member_profile_ui(
+    team_member_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    team_member = db.query(models.TeamMember).filter(
+        models.TeamMember.id == team_member_id
+    ).first()
+
+    if not team_member:
+        return RedirectResponse(url="/team-members-ui", status_code=303)
+
+    project = db.query(models.Project).filter(
+        models.Project.id == team_member.project_id
+    ).first()
+
+    linked_user = None
+
+    if team_member.user_id:
+        linked_user = db.query(models.User).filter(
+            models.User.id == team_member.user_id
+        ).first()
+
+    team_member_skills = db.query(models.TeamMemberSkill).filter(
+        models.TeamMemberSkill.team_member_id == team_member.id
+    ).all()
+
+    skills_list = []
+
+    for team_member_skill in team_member_skills:
+        skill = db.query(models.Skill).filter(
+            models.Skill.id == team_member_skill.skill_id
+        ).first()
+
+        if skill:
+            skills_list.append(skill)
+
+    assignments_list = db.query(models.Assignment).filter(
+        models.Assignment.team_member_id == team_member.id
+    ).all()
+
+    total_assignments = len(assignments_list)
+
+    active_assignments = [
+        assignment for assignment in assignments_list
+        if assignment.status == "active"
+    ]
+
+    completed_assignments = [
+        assignment for assignment in assignments_list
+        if assignment.status == "completed"
+    ]
+
+    delayed_assignments = [
+        assignment for assignment in assignments_list
+        if assignment.task and assignment.task.status == "delayed"
+    ]
+
+    in_progress_assignments = [
+        assignment for assignment in assignments_list
+        if assignment.task and assignment.task.status == "in_progress"
+    ]
+
+    active_assignments_count = len(active_assignments)
+    completed_assignments_count = len(completed_assignments)
+    delayed_assignments_count = len(delayed_assignments)
+    in_progress_assignments_count = len(in_progress_assignments)
+
+    workload_status = calculate_employee_workload_status(active_assignments_count)
+
+    completion_rate = calculate_completion_rate(
+        total_assignments,
+        completed_assignments_count
+    )
+
+    assignment_scores = []
+
+    for assignment in assignments_list:
+        assignment_score = get_assignment_score_safely(assignment)
+
+        if assignment_score is not None:
+            assignment_scores.append(assignment_score)
+
+    if assignment_scores:
+        average_assignment_score = round(
+            sum(assignment_scores) / len(assignment_scores),
+            2
+        )
+    else:
+        average_assignment_score = None
+
+    profile_summary = {
+        "total_assignments": total_assignments,
+        "active_assignments": active_assignments_count,
+        "completed_assignments": completed_assignments_count,
+        "delayed_assignments": delayed_assignments_count,
+        "in_progress_assignments": in_progress_assignments_count,
+        "completion_rate": completion_rate,
+        "workload_status": workload_status,
+        "average_assignment_score": average_assignment_score
+    }
+
+    return templates.TemplateResponse(
+        "team_member_profile.html",
+        {
+            "request": request,
+            "title": f"{team_member.name} Profile",
+            "current_user": current_user,
+            "team_member": team_member,
+            "project": project,
+            "linked_user": linked_user,
+            "skills": skills_list,
+            "assignments": assignments_list,
+            "profile_summary": profile_summary
         }
     )
 
@@ -448,6 +750,38 @@ def tasks_ui(
             "current_user": current_user
         }
     )
+
+
+@app.post("/tasks-ui/{task_id}/delete")
+def delete_task_ui(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    task = db.query(models.Task).filter(
+        models.Task.id == task_id
+    ).first()
+
+    if not task:
+        return RedirectResponse(url="/tasks-ui", status_code=303)
+
+    db.query(models.Assignment).filter(
+        models.Assignment.task_id == task_id
+    ).delete(synchronize_session=False)
+
+    db.query(models.TaskRequiredSkill).filter(
+        models.TaskRequiredSkill.task_id == task_id
+    ).delete(synchronize_session=False)
+
+    db.delete(task)
+    db.commit()
+
+    return RedirectResponse(url="/tasks-ui", status_code=303)
 
 
 @app.get("/analytics-ui")

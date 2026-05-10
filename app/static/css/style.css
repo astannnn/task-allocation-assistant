@@ -220,6 +220,30 @@ body {
     font-size: 13px;
 }
 
+/* Buttons / links */
+
+.secondary-link-button {
+    display: inline-block;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #e5e7eb;
+    color: #111827;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+}
+
+.secondary-link-button:hover {
+    background: #d1d5db;
+    text-decoration: none;
+}
+
+.muted-text {
+    color: #6b7280;
+}
+
 /* Custom multiselect dropdown */
 
 .custom-multiselect {
@@ -331,6 +355,170 @@ body {
     padding: 40px 32px;
 }
 
+/* Team member cards */
+
+.team-member-card {
+    background: #ffffff;
+}
+
+.team-member-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.team-member-card-header h3 {
+    margin-bottom: 4px;
+}
+
+.profile-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 18px;
+}
+
+.profile-mini-grid p {
+    margin: 4px 0;
+}
+
+/* Team member full profile page */
+
+.profile-header-section {
+    border-left: 5px solid #2563eb;
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.profile-header h2 {
+    margin: 0 0 6px 0;
+    font-size: 30px;
+    color: #111827;
+}
+
+.profile-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.profile-summary-card {
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f9fafb;
+}
+
+.profile-summary-card strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 22px;
+    color: #111827;
+}
+
+.summary-label {
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.profile-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.profile-detail-card {
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f9fafb;
+}
+
+.profile-detail-card strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.profile-detail-card p {
+    margin: 0;
+}
+
+.skills-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.skill-chip small {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 11px;
+}
+
+/* Tables */
+
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.data-table th {
+    padding: 14px 16px;
+    background: #f9fafb;
+    color: #374151;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 800;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 14px 16px;
+    color: #1f2937;
+    font-size: 15px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
 /* My Tasks and Notifications */
 
 .my-tasks-page {
@@ -438,26 +626,6 @@ body {
     table-layout: fixed !important;
 }
 
-.notifications-table-fixed th:nth-child(1),
-.notifications-table-fixed td:nth-child(1) {
-    width: 58% !important;
-}
-
-.notifications-table-fixed th:nth-child(2),
-.notifications-table-fixed td:nth-child(2) {
-    width: 14% !important;
-}
-
-.notifications-table-fixed th:nth-child(3),
-.notifications-table-fixed td:nth-child(3) {
-    width: 18% !important;
-}
-
-.notifications-table-fixed th:nth-child(4),
-.notifications-table-fixed td:nth-child(4) {
-    width: 10% !important;
-}
-
 .notification-message-cell {
     white-space: normal !important;
     word-break: break-word !important;
@@ -482,6 +650,32 @@ body {
     white-space: nowrap;
 }
 
+.status-badge.underloaded,
+.status-badge.open,
+.status-badge.assigned {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.status-badge.balanced,
+.status-badge.completed,
+.status-badge.active {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.status-badge.overloaded,
+.status-badge.delayed,
+.status-badge.manual_review {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.status-badge.in_progress {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
 .priority-low {
     background: #ecfdf5;
     color: #047857;
@@ -500,33 +694,6 @@ body {
 .priority-critical {
     background: #fef2f2;
     color: #b91c1c;
-}
-
-/* Notifications action column */
-
-.notifications-table-fixed th:nth-child(1),
-.notifications-table-fixed td:nth-child(1) {
-    width: 48% !important;
-}
-
-.notifications-table-fixed th:nth-child(2),
-.notifications-table-fixed td:nth-child(2) {
-    width: 14% !important;
-}
-
-.notifications-table-fixed th:nth-child(3),
-.notifications-table-fixed td:nth-child(3) {
-    width: 16% !important;
-}
-
-.notifications-table-fixed th:nth-child(4),
-.notifications-table-fixed td:nth-child(4) {
-    width: 10% !important;
-}
-
-.notifications-table-fixed th:nth-child(5),
-.notifications-table-fixed td:nth-child(5) {
-    width: 12% !important;
 }
 
 /* Wider notifications page with visible action column */
@@ -567,6 +734,201 @@ body {
 }
 
 .notification-read-button {
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+}
+
+/* Team member self status update */
+
+.my-profile-status-card {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    margin-bottom: 24px;
+    border-left: 5px solid #2563eb;
+}
+
+.my-profile-status-header h2 {
+    margin: 0 0 8px 0;
+    color: #111827;
+    font-size: 24px;
+}
+
+.my-profile-status-header p {
+    margin: 0 0 18px 0;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.my-profile-status-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+
+.status-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.status-field label {
+    font-weight: 700;
+    color: #374151;
+}
+
+.status-field select {
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+}
+
+.my-profile-status-form button,
+.small-action-button {
+    padding: 11px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.my-profile-status-form button:hover,
+.small-action-button:hover {
+    background: #1d4ed8;
+}
+
+.current-status-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+/* Delete actions */
+
+.list-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.card-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.card-actions form,
+.list-item-header form {
+    margin: 0;
+}
+
+.delete-button {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background: #dc2626;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.delete-button:hover {
+    background: #b91c1c;
+}
+
+.project-list-item,
+.task-list-item {
+    background: #ffffff;
+}
+
+/* Strong fix for manager notifications table text overlap */
+
+.notifications-wide-page {
+    max-width: 1700px !important;
+    width: 96vw !important;
+}
+
+.notifications-wide-page .my-tasks-card {
+    width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+.notifications-wide-page .my-tasks-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+}
+
+.notifications-wide-page .my-tasks-table th,
+.notifications-wide-page .my-tasks-table td {
+    vertical-align: middle !important;
+    overflow: hidden !important;
+}
+
+/* Message column */
+.notifications-wide-page .my-tasks-table th:nth-child(1),
+.notifications-wide-page .my-tasks-table td:nth-child(1) {
+    width: 45% !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.5 !important;
+}
+
+/* Type column */
+.notifications-wide-page .my-tasks-table th:nth-child(2),
+.notifications-wide-page .my-tasks-table td:nth-child(2) {
+    width: 13% !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Date column */
+.notifications-wide-page .my-tasks-table th:nth-child(3),
+.notifications-wide-page .my-tasks-table td:nth-child(3) {
+    width: 15% !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Status column */
+.notifications-wide-page .my-tasks-table th:nth-child(4),
+.notifications-wide-page .my-tasks-table td:nth-child(4) {
+    width: 10% !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Action column */
+.notifications-wide-page .my-tasks-table th:nth-child(5),
+.notifications-wide-page .my-tasks-table td:nth-child(5) {
+    width: 17% !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Extra safety for message cell if class exists */
+.notifications-wide-page .notification-message-cell {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.5 !important;
+}
+
+/* Button fix */
+.notifications-wide-page .notification-read-button {
+    white-space: nowrap !important;
     padding: 8px 10px !important;
     font-size: 13px !important;
 }

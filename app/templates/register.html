@@ -5,7 +5,7 @@
     <h1>Register</h1>
 
     {% if error %}
-        <div class="error-message">{{ error }}</div>
+    <div class="error-message">{{ error }}</div>
     {% endif %}
 
     <form method="post" action="/register" class="form-card">
@@ -18,13 +18,14 @@
         <label>Password</label>
         <input type="password" name="password" required>
 
-        <label>Role</label>
-        <select name="role" required>
-            <option value="manager">Manager</option>
-            <option value="team_member">Team Member</option>
-        </select>
+        <input type="hidden" name="role" value="team_member">
 
-        <button type="submit">Register</button>
+        <div class="info-box">
+            Public registration creates a Team Member account.
+            Manager accounts are created administratively.
+        </div>
+
+        <button type="submit">Register as Team Member</button>
     </form>
 
     <p>

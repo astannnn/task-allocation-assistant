@@ -56,7 +56,10 @@
 
 <section class="section">
     <h2>Team Member Profiles</h2>
-    <p>Existing team members for the selected project.</p>
+    <p>
+        Existing team members for the selected project. Open a full profile to inspect
+        skills, workload, task history and allocation-related indicators.
+    </p>
 
     <button type="button" onclick="loadTeamMembers()">Refresh Team Members</button>
 
@@ -66,6 +69,19 @@
 </section>
 
 <script>
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return "";
+        }
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
     function updateNameAndRoleOptions(members) {
         const nameOptions = document.getElementById("member-name-options");
         const roleOptions = document.getElementById("member-role-options");
@@ -156,17 +172,38 @@
 
             members.forEach(member => {
                 const item = document.createElement("div");
-                item.className = "list-item";
+                item.className = "list-item team-member-card";
 
                 item.innerHTML = `
-                    <h3>${member.name}</h3>
-                    <p><strong>Specialist ID:</strong> ${member.id}</p>
-                    <p><strong>Role:</strong> ${member.role}</p>
-                    <p><strong>Availability:</strong> ${member.availability}</p>
-                    <p><strong>Workload:</strong> ${member.workload}</p>
-                    <p><strong>Reliability:</strong> ${member.reliability}</p>
-                    <p><strong>Dynamic Status:</strong> ${member.dynamic_status}</p>
-                    <p><strong>Mood State:</strong> ${member.mood_state}</p>
+                    <div class="team-member-card-header">
+                        <div>
+                            <h3>${escapeHtml(member.name)}</h3>
+                            <p class="muted-text">${escapeHtml(member.role)}</p>
+                        </div>
+
+                        <div class="card-actions">
+                            <a class="secondary-link-button" href="/team-members-ui/${member.id}">
+                                View Full Profile
+                            </a>
+
+                            <form method="post"
+                                  action="/team-members-ui/${member.id}/delete"
+                                  onsubmit="return confirm('Delete this team member? Their assigned tasks will become open again and can be reassigned.');">
+                                <button type="submit" class="delete-button">
+                                    Delete Member
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="profile-mini-grid">
+                        <p><strong>Specialist ID:</strong> ${member.id}</p>
+                        <p><strong>Availability:</strong> ${member.availability}</p>
+                        <p><strong>Workload:</strong> ${member.workload}</p>
+                        <p><strong>Reliability:</strong> ${member.reliability}</p>
+                        <p><strong>Dynamic Status:</strong> ${escapeHtml(member.dynamic_status)}</p>
+                        <p><strong>Mood State:</strong> ${escapeHtml(member.mood_state)}</p>
+                    </div>
                 `;
 
                 list.appendChild(item);

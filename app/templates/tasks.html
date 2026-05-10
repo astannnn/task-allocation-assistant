@@ -354,6 +354,19 @@
 </section>
 
 <script>
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return "";
+        }
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
     async function loadProjectsForTasks() {
         const taskProjectSelect = document.getElementById("task-project-id");
         const templateProjectSelect = document.getElementById("template-project-id");
@@ -412,7 +425,7 @@
 
                 label.innerHTML = `
                     <input type="checkbox" class="required-skill-checkbox" value="${skill.id}">
-                    ${skill.id} - ${skillName}
+                    ${skill.id} - ${escapeHtml(skillName)}
                 `;
 
                 skillsList.appendChild(label);
@@ -491,7 +504,7 @@
                         requiredSkillsText = requiredSkills
                             .map(requiredSkill => {
                                 const skillName = skillsMap[requiredSkill.skill_id] || `Skill ID ${requiredSkill.skill_id}`;
-                                return `${skillName} (${requiredSkill.required_level})`;
+                                return `${escapeHtml(skillName)} (${escapeHtml(requiredSkill.required_level)})`;
                             })
                             .join(", ");
                     }
@@ -539,23 +552,36 @@
                 });
 
                 const item = document.createElement("div");
-                item.className = "list-item";
+                item.className = "list-item task-list-item";
 
                 item.innerHTML = `
-                    <h3>${task.title}</h3>
-                    <p><strong>Task ID:</strong> ${task.id}</p>
+                    <div class="list-item-header">
+                        <div>
+                            <h3>${escapeHtml(task.title)}</h3>
+                            <p class="muted-text">Task ID: ${task.id}</p>
+                        </div>
+
+                        <form method="post"
+                              action="/tasks-ui/${task.id}/delete"
+                              onsubmit="return confirm('Delete this task? Its assignment and required skills will also be removed.');">
+                            <button type="submit" class="delete-button">
+                                Delete Task
+                            </button>
+                        </form>
+                    </div>
+
                     <p><strong>Status:</strong> ${formatStatus(task.status)}</p>
                     <p><strong>Priority:</strong> ${formatPriority(task.priority)}</p>
-                    <p><strong>Deadline:</strong> ${task.deadline}</p>
-                    <p><strong>Estimated Effort:</strong> ${task.estimated_effort}</p>
-                    <p><strong>Description:</strong> ${task.description || "No description"}</p>
+                    <p><strong>Deadline:</strong> ${escapeHtml(task.deadline)}</p>
+                    <p><strong>Estimated Effort:</strong> ${escapeHtml(task.estimated_effort)}</p>
+                    <p><strong>Description:</strong> ${escapeHtml(task.description || "No description")}</p>
 
                     <hr>
 
                     <p><strong>Required Skills:</strong> ${requiredSkillsText}</p>
-                    <p><strong>Assigned Member:</strong> ${assignmentText}</p>
+                    <p><strong>Assigned Member:</strong> ${escapeHtml(assignmentText)}</p>
                     <p><strong>Assignment Status:</strong> ${formatStatus(assignmentStatus)}</p>
-                    <p><strong>Assignment Score:</strong> ${assignmentScore}</p>
+                    <p><strong>Assignment Score:</strong> ${escapeHtml(assignmentScore)}</p>
 
                     <button type="button" onclick="selectTaskForAllocation(${task.id})">Select for Allocation</button>
                 `;
@@ -628,14 +654,14 @@
         const safeStatus = status || "none";
         const statusClass = `status-${safeStatus}`;
 
-        return `<span class="status-pill ${statusClass}">${safeStatus}</span>`;
+        return `<span class="status-pill ${statusClass}">${escapeHtml(safeStatus)}</span>`;
     }
 
     function formatPriority(priority) {
         const safePriority = priority || "medium";
         const priorityClass = `priority-${safePriority}`;
 
-        return `<span class="priority-pill ${priorityClass}">${safePriority}</span>`;
+        return `<span class="priority-pill ${priorityClass}">${escapeHtml(safePriority)}</span>`;
     }
 
     function filterTaskProgress(category) {
@@ -679,8 +705,8 @@
 
         tableBody.innerHTML = filteredRows.map(row => `
             <tr>
-                <td class="task-title-cell">${row.title}</td>
-                <td>${row.assignedMember}</td>
+                <td class="task-title-cell">${escapeHtml(row.title)}</td>
+                <td>${escapeHtml(row.assignedMember)}</td>
                 <td>${formatStatus(row.taskStatus)}</td>
                 <td>${formatStatus(row.assignmentStatus)}</td>
                 <td>${formatPriority(row.priority)}</td>
@@ -883,11 +909,11 @@
 
             resultBox.innerHTML = `
                 <h3>Best Candidate</h3>
-                <p><strong>Task:</strong> ${result.task_title}</p>
-                <p><strong>Member:</strong> ${result.best_candidate.team_member_name}</p>
-                <p><strong>Role:</strong> ${result.best_candidate.role}</p>
-                <p><strong>Score:</strong> ${result.best_candidate.score}</p>
-                <p><strong>Explanation:</strong> ${result.best_candidate.explanation}</p>
+                <p><strong>Task:</strong> ${escapeHtml(result.task_title)}</p>
+                <p><strong>Member:</strong> ${escapeHtml(result.best_candidate.team_member_name)}</p>
+                <p><strong>Role:</strong> ${escapeHtml(result.best_candidate.role)}</p>
+                <p><strong>Score:</strong> ${escapeHtml(result.best_candidate.score)}</p>
+                <p><strong>Explanation:</strong> ${escapeHtml(result.best_candidate.explanation)}</p>
                 <pre>${JSON.stringify(result.best_candidate.score_breakdown, null, 2)}</pre>
             `;
         } catch (error) {
@@ -925,8 +951,8 @@
                 <p><strong>Task ID:</strong> ${result.assignment.task_id}</p>
                 <p><strong>Team Member ID:</strong> ${result.assignment.team_member_id}</p>
                 <p><strong>Score:</strong> ${result.assignment.score_at_assignment}</p>
-                <p><strong>Status:</strong> ${result.assignment.status}</p>
-                <p><strong>Explanation:</strong> ${result.selected_candidate_explanation}</p>
+                <p><strong>Status:</strong> ${escapeHtml(result.assignment.status)}</p>
+                <p><strong>Explanation:</strong> ${escapeHtml(result.selected_candidate_explanation)}</p>
             `;
 
             await loadTasks();

@@ -6,78 +6,157 @@
         <div>
             <h1>My Tasks</h1>
             <p>
-                Logged in as:
-                <strong>{{ current_user.name }}</strong>
-                <span>{{ current_user.role }}</span>
+                Welcome,
+                <span>{{ current_user.name }}</span>
             </p>
         </div>
 
         <a href="/logout">Logout</a>
     </div>
 
-    {% if assignments %}
-    <div class="my-tasks-card">
-        <table class="my-tasks-table">
-            <thead>
-                <tr>
-                    <th>Task</th>
-                    <th>Project ID</th>
-                    <th>Priority</th>
-                    <th>Task Status</th>
-                    <th>Assignment Status</th>
-                    <th>Score</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
+    {% if primary_team_member %}
+    <section class="my-profile-status-card">
+        <div class="my-profile-status-header">
+            <div>
+                <h2>My Current Profile Status</h2>
+                <p>
+                    Update your current work status and mood. These values are stored in your
+                    team-member profile and used by the allocation assistant during future task assignment.
+                </p>
+            </div>
+        </div>
 
-            <tbody>
-                {% for assignment in assignments %}
-                <tr>
-                    <td class="task-name">{{ assignment.task.title }}</td>
-                    <td>{{ assignment.task.project_id }}</td>
-                    <td>{{ assignment.task.priority }}</td>
-                    <td>{{ assignment.task.status }}</td>
-                    <td>{{ assignment.status }}</td>
-                    <td>
-                        {% if assignment.score_at_assignment is not none %}
-                        {{ "%.3f"|format(assignment.score_at_assignment) }}
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if assignment.task.status == "assigned" %}
-                        <form method="post" action="/my-tasks/{{ assignment.id }}/status">
-                            <input type="hidden" name="new_status" value="in_progress">
-                            <button type="submit" class="action-button">
-                                Start Task
-                            </button>
-                        </form>
-                        {% elif assignment.task.status == "in_progress" %}
-                        <form method="post" action="/my-tasks/{{ assignment.id }}/status">
-                            <input type="hidden" name="new_status" value="completed">
-                            <button type="submit" class="action-button">
-                                Complete Task
-                            </button>
-                        </form>
-                        {% elif assignment.task.status == "completed" %}
-                        <span class="status-badge completed">
-                            Completed
-                        </span>
-                        {% else %}
-                        <span>-</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+        <form method="post" action="/my-profile/status" class="my-profile-status-form">
+            <div class="status-field">
+                <label for="dynamic-status">Dynamic Status</label>
+                <select id="dynamic-status" name="dynamic_status" required>
+                    <option value="available" {% if primary_team_member.dynamic_status == "available" %}selected{% endif %}>available</option>
+                    <option value="busy" {% if primary_team_member.dynamic_status == "busy" %}selected{% endif %}>busy</option>
+                    <option value="focused" {% if primary_team_member.dynamic_status == "focused" %}selected{% endif %}>focused</option>
+                    <option value="blocked" {% if primary_team_member.dynamic_status == "blocked" %}selected{% endif %}>blocked</option>
+                </select>
+            </div>
+
+            <div class="status-field">
+                <label for="mood-state">Mood State</label>
+                <select id="mood-state" name="mood_state" required>
+                    <option value="positive" {% if primary_team_member.mood_state == "positive" %}selected{% endif %}>positive</option>
+                    <option value="neutral" {% if primary_team_member.mood_state == "neutral" %}selected{% endif %}>neutral</option>
+                    <option value="stressed" {% if primary_team_member.mood_state == "stressed" %}selected{% endif %}>stressed</option>
+                </select>
+            </div>
+
+            <button type="submit">Update My Status</button>
+        </form>
+
+        <div class="current-status-row">
+            <span class="status-badge">{{ primary_team_member.dynamic_status }}</span>
+            <span class="status-badge">{{ primary_team_member.mood_state }}</span>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if assignments %}
+        <div class="my-tasks-card">
+            <table class="my-tasks-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Project ID</th>
+                        <th>Priority</th>
+                        <th>Task Status</th>
+                        <th>Assignment Status</th>
+                        <th>Score</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for assignment in assignments %}
+                        <tr>
+                            <td class="task-name">
+                                {% if assignment.task %}
+                                    {{ assignment.task.title }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if assignment.task %}
+                                    {{ assignment.task.project_id }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if assignment.task %}
+                                    <span class="priority-badge priority-{{ assignment.task.priority }}">
+                                        {{ assignment.task.priority }}
+                                    </span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if assignment.task %}
+                                    <span class="status-badge {{ assignment.task.status }}">
+                                        {{ assignment.task.status }}
+                                    </span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <span class="status-badge {{ assignment.status }}">
+                                    {{ assignment.status }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {% if assignment.score is defined and assignment.score is not none %}
+                                    {{ assignment.score }}
+                                {% elif assignment.allocation_score is defined and assignment.allocation_score is not none %}
+                                    {{ assignment.allocation_score }}
+                                {% elif assignment.matching_score is defined and assignment.matching_score is not none %}
+                                    {{ assignment.matching_score }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if assignment.task and assignment.task.status == "assigned" %}
+                                    <form method="post" action="/my-tasks/{{ assignment.id }}/status">
+                                        <input type="hidden" name="new_status" value="in_progress">
+                                        <button type="submit" class="small-action-button">Start Task</button>
+                                    </form>
+                                {% elif assignment.task and assignment.task.status == "in_progress" %}
+                                    <form method="post" action="/my-tasks/{{ assignment.id }}/status">
+                                        <input type="hidden" name="new_status" value="completed">
+                                        <button type="submit" class="small-action-button">Complete Task</button>
+                                    </form>
+                                {% elif assignment.task and assignment.task.status == "completed" %}
+                                    <span class="status-badge completed">Completed</span>
+                                {% else %}
+                                    <span class="muted-text">No action</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
-    <div class="my-tasks-empty">
-        <h3>No tasks assigned yet</h3>
-        <p>You do not have any assigned tasks connected to your account.</p>
-    </div>
+        <div class="my-tasks-empty">
+            <h2>No tasks assigned yet</h2>
+            <p class="muted-text">
+                When a manager assigns a task to you, it will appear on this page.
+            </p>
+        </div>
     {% endif %}
 </div>
 {% endblock %}

@@ -28,7 +28,10 @@
 
 <section class="section">
     <h2>Project List</h2>
-    <p>Existing projects stored in the database.</p>
+    <p>
+        Existing projects stored in the database. If a project is deleted, its related
+        tasks, assignments, required skills and team members are also removed.
+    </p>
 
     <div id="projects-list" class="list">
         Loading projects...
@@ -36,6 +39,19 @@
 </section>
 
 <script>
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return "";
+        }
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
     async function loadProjects() {
         const list = document.getElementById("projects-list");
 
@@ -52,13 +68,26 @@
 
             projects.forEach(project => {
                 const item = document.createElement("div");
-                item.className = "list-item";
+                item.className = "list-item project-list-item";
 
                 item.innerHTML = `
-                    <h3>${project.title}</h3>
-                    <p><strong>ID:</strong> ${project.id}</p>
-                    <p><strong>Description:</strong> ${project.description || "No description"}</p>
-                    <p><strong>Deadline:</strong> ${project.deadline || "No deadline"}</p>
+                    <div class="list-item-header">
+                        <div>
+                            <h3>${escapeHtml(project.title)}</h3>
+                            <p class="muted-text">Project ID: ${project.id}</p>
+                        </div>
+
+                        <form method="post"
+                              action="/projects-ui/${project.id}/delete"
+                              onsubmit="return confirm('Delete this project? All related tasks, assignments and team members will also be removed.');">
+                            <button type="submit" class="delete-button">
+                                Delete Project
+                            </button>
+                        </form>
+                    </div>
+
+                    <p><strong>Description:</strong> ${escapeHtml(project.description || "No description")}</p>
+                    <p><strong>Deadline:</strong> ${escapeHtml(project.deadline || "No deadline")}</p>
                 `;
 
                 list.appendChild(item);

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">Team Member Profile</h1>
+
+<section class="section profile-header-section">
+    <div class="profile-header">
+        <div>
+            <h2>{{ team_member.name }}</h2>
+            <p class="muted-text">{{ team_member.role }}</p>
+        </div>
+
+        <a href="/team-members-ui" class="secondary-link-button">
+            Back to Team Members
+        </a>
+    </div>
+
+    <p>
+        This page shows a detailed employee profile used by the allocation algorithm:
+        skills, availability, workload, reliability, dynamic status, mood state and task history.
+    </p>
+</section>
+
+<section class="section">
+    <h2>Profile Summary</h2>
+
+    <div class="profile-summary-grid">
+        <div class="profile-summary-card">
+            <span class="summary-label">Total Assignments</span>
+            <strong>{{ profile_summary.total_assignments }}</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Active Tasks</span>
+            <strong>{{ profile_summary.active_assignments }}</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">In Progress</span>
+            <strong>{{ profile_summary.in_progress_assignments }}</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Completed</span>
+            <strong>{{ profile_summary.completed_assignments }}</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Delayed</span>
+            <strong>{{ profile_summary.delayed_assignments }}</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Completion Rate</span>
+            <strong>{{ profile_summary.completion_rate }}%</strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Workload Status</span>
+            <strong class="status-badge {{ profile_summary.workload_status }}">
+                {{ profile_summary.workload_status }}
+            </strong>
+        </div>
+
+        <div class="profile-summary-card">
+            <span class="summary-label">Average Score</span>
+            {% if profile_summary.average_assignment_score is not none %}
+            <strong>{{ profile_summary.average_assignment_score }}</strong>
+            {% else %}
+            <strong>N/A</strong>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2>Basic Information</h2>
+
+    <div class="profile-details-grid">
+        <div class="profile-detail-card">
+            <strong>Specialist ID</strong>
+            <p>{{ team_member.id }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Project</strong>
+            {% if project %}
+            <p>{{ project.title }} <span class="muted-text">(ID: {{ project.id }})</span></p>
+            {% else %}
+            <p>N/A</p>
+            {% endif %}
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Linked User Account</strong>
+            {% if linked_user %}
+            <p>{{ linked_user.name }} — {{ linked_user.email }}</p>
+            {% else %}
+            <p>Not linked</p>
+            {% endif %}
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Role</strong>
+            <p>{{ team_member.role }}</p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2>Deep Profile Indicators</h2>
+
+    <div class="profile-details-grid">
+        <div class="profile-detail-card">
+            <strong>Availability</strong>
+            <p>{{ team_member.availability }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Workload</strong>
+            <p>{{ team_member.workload }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Reliability</strong>
+            <p>{{ team_member.reliability }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Dynamic Status</strong>
+            <p>
+                <span class="status-badge">
+                    {{ team_member.dynamic_status }}
+                </span>
+            </p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Mood State</strong>
+            <p>
+                <span class="status-badge">
+                    {{ team_member.mood_state }}
+                </span>
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2>Skills</h2>
+
+    {% if skills %}
+    <div class="skills-chip-list">
+        {% for skill in skills %}
+        <span class="skill-chip">
+            {{ skill.name }}
+
+            {% if skill.category is defined and skill.category %}
+            <small>{{ skill.category }}</small>
+            {% endif %}
+        </span>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted-text">No skills attached to this team member yet.</p>
+    {% endif %}
+</section>
+
+<section class="section">
+    <h2>Assignment History</h2>
+
+    {% if assignments %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Assignment ID</th>
+                    <th>Task</th>
+                    <th>Task Status</th>
+                    <th>Assignment Status</th>
+                    <th>Priority</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for assignment in assignments %}
+                <tr>
+                    <td>{{ assignment.id }}</td>
+
+                    <td>
+                        {% if assignment.task %}
+                        {{ assignment.task.title }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if assignment.task %}
+                        <span class="status-badge {{ assignment.task.status }}">
+                            {{ assignment.task.status }}
+                        </span>
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <span class="status-badge {{ assignment.status }}">
+                            {{ assignment.status }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {% if assignment.task %}
+                        <span class="priority-badge priority-{{ assignment.task.priority }}">
+                            {{ assignment.task.priority }}
+                        </span>
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if assignment.score is defined and assignment.score is not none %}
+                        {{ assignment.score }}
+                        {% elif assignment.allocation_score is defined and assignment.allocation_score is not none %}
+                        {{ assignment.allocation_score }}
+                        {% elif assignment.matching_score is defined and assignment.matching_score is not none %}
+                        {{ assignment.matching_score }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="muted-text">No assignments found for this team member.</p>
+    {% endif %}
+</section>
+{% endblock %}
