@@ -2,13 +2,15 @@
 
 A Software Engineering project developed as a rule-based intelligent project management assistant.
 
-The system helps managers and team leaders create projects, manage team members, define tasks, assign required skills, automatically allocate tasks, analyze workload, detect conflicts, and reassign delayed tasks using transparent heuristic logic.
+The system helps managers and team leaders create projects, manage team members, define tasks, attach required skills, automatically allocate tasks, monitor workload, detect conflicts, reassign delayed tasks, manage notifications, and control project data through a web interface.
 
 This project is not a simple task tracker. It is a decision-support system for task allocation and team coordination.
 
+---
+
 ## Important Note
 
-This project does not use Machine Learning, Artificial Intelligence, or Generative AI.
+This project does **not** use Machine Learning, Artificial Intelligence, or Generative AI.
 
 The “intelligent” behavior of the system is implemented through:
 
@@ -29,20 +31,82 @@ This makes the allocation logic explainable, testable, and suitable for a Softwa
 
 ## Project Goal
 
-The goal of this project is to support managers in assigning tasks more effectively by using structured team-member profiles and rule-based decision logic.
+The goal of this project is to support managers in assigning and monitoring work more effectively by using structured team-member profiles and rule-based decision logic.
 
 The system allows a manager to:
 
 - create and manage projects;
-- add team members;
-- define hard and soft skills;
-- create tasks with deadlines, priorities, and required skills;
+- add and delete team members;
+- create and manage skills;
+- attach and remove skills from specialists;
+- create and delete tasks;
+- create tasks with deadlines, priorities, estimated effort, and required skills;
 - automatically find the most suitable team member for a task;
 - analyze workload distribution;
 - detect assignment conflicts;
 - reassign delayed tasks;
-- receive notifications and deadline reminders;
-- generate multiple tasks from predefined project templates.
+- receive and inspect notifications;
+- generate multiple tasks from predefined project templates;
+- create login accounts for existing employee profiles.
+
+The system also allows team members to:
+
+- log in to their own account;
+- view their assigned tasks;
+- update task status;
+- update their own dynamic work status and mood state.
+
+---
+
+## Main User Roles
+
+### Manager
+
+The manager is responsible for project and team coordination.
+
+Main manager capabilities:
+
+- manage projects;
+- manage team members;
+- create and link login accounts for employees;
+- manage skills and team-member skill profiles;
+- create tasks and structured project tasks;
+- preview allocation results;
+- run automatic task allocation;
+- monitor task progress;
+- inspect full employee profiles;
+- delete projects, members, and tasks;
+- view all system notifications.
+
+### Team Member
+
+The team member has a limited personal workspace.
+
+Main team-member capabilities:
+
+- view assigned tasks;
+- start and complete assigned tasks;
+- update personal dynamic status;
+- update personal mood state;
+- receive personal notifications.
+
+---
+
+## Security and Access Control
+
+The system includes basic role-based access control.
+
+Important security decisions:
+
+- Public registration creates only `team_member` accounts.
+- Users cannot register themselves as `manager`.
+- Manager accounts are created administratively.
+- Manager pages are protected by role checks.
+- Swagger/OpenAPI documentation is protected and accessible only to managers.
+- Managers can create and link login accounts for existing team-member profiles.
+- Passwords are stored as hashes, not as plain text.
+
+This prevents unauthorized users from selecting the manager role through the registration page.
 
 ---
 
@@ -60,19 +124,20 @@ The project is designed to be balanced across three required categories:
 
 These functionalities are mainly based on storing, retrieving, updating, and deleting data from the database.
 
-Implemented CRUD-oriented functionalities include:
+Implemented DB-oriented functionalities include:
 
 - user management;
-- project creation and management;
-- team member management;
-- skill management;
-- team member skill assignment;
-- task creation and management;
+- project creation, listing, and deletion;
+- team member creation, listing, profile display, and deletion;
+- skill creation and listing;
+- team-member skill assignment and removal;
+- task creation, listing, status update, and deletion;
 - task required skills;
 - assignment records;
 - notifications;
 - task statuses;
-- project-based task and member retrieval.
+- project-based task and member retrieval;
+- employee login account linking.
 
 Main database entities:
 
@@ -92,17 +157,19 @@ These functionalities form the data foundation of the system.
 
 ## 2. Third-Party Services and Libraries
 
-The project uses several third-party libraries and tools to support backend development, API documentation, database interaction, scheduling, and testing.
+The project uses several third-party libraries and tools to support backend development, API documentation, database interaction, scheduling, templating, authentication, and testing.
 
 Used technologies and libraries:
 
 - FastAPI — backend web framework;
 - Uvicorn — ASGI server;
 - SQLAlchemy — ORM and database interaction;
-- SQLite — local database;
+- SQLite — local file-based database;
 - Pydantic — request and response validation;
+- Jinja2 — server-side HTML templates;
 - Swagger / OpenAPI — automatic API documentation;
 - APScheduler — scheduled deadline checking;
+- passlib / bcrypt — password hashing;
 - Pytest — automated testing.
 
 Third-party-supported functionalities include:
@@ -111,6 +178,8 @@ Third-party-supported functionalities include:
 - scheduled deadline checks using APScheduler;
 - database interaction using SQLAlchemy;
 - request validation using Pydantic;
+- HTML rendering using Jinja2;
+- password hashing;
 - automated testing using Pytest.
 
 ---
@@ -120,6 +189,8 @@ Third-party-supported functionalities include:
 The main value of the project is in the complex application logic implemented inside the system.
 
 These features are not simple CRUD operations. They use structured profiles, taxonomy, scoring formulas, constraints, and rule-based workflows.
+
+---
 
 ### 3.1 Deep Team Member Profiles
 
@@ -132,13 +203,41 @@ Each team member has a structured profile that includes:
 - dynamic status;
 - mood state;
 - hard skills;
-- soft skills.
+- soft skills;
+- assigned task history;
+- linked login account information.
 
 These attributes are used by the allocation algorithm when selecting the most suitable person for a task.
 
+Managers can open a full employee profile page to inspect:
+
+- profile summary;
+- basic information;
+- linked user account;
+- deep profile indicators;
+- skills;
+- assignment history.
+
 ---
 
-### 3.2 Skill Taxonomy and Role Ontology
+### 3.2 Team Member Mood and Status Self-Update
+
+The system does not infer mood automatically.
+
+Instead, mood and dynamic status are structured indicators explicitly updated by the team member.
+
+A team member can update:
+
+- dynamic status: `available`, `busy`, `focused`, `blocked`;
+- mood state: `positive`, `neutral`, `stressed`.
+
+The allocation algorithm then uses these updated values during future task assignment.
+
+This keeps the system rule-based and explainable.
+
+---
+
+### 3.3 Skill Taxonomy and Role Ontology
 
 The system uses a predefined taxonomy of skills and role categories.
 
@@ -146,23 +245,27 @@ Example skill categories:
 
 - backend development;
 - frontend development;
+- database development;
 - data analysis;
-- project management;
+- testing;
+- documentation;
 - soft skills.
 
-Example role ontology:
+Example roles:
 
 - Backend Developer;
 - Frontend Developer;
-- Full Stack Developer;
+- Database Developer;
 - Data Analyst;
+- QA Tester;
+- Technical Writer;
 - Project Manager.
 
 This allows the system to reason about compatibility between task requirements and team member profiles.
 
 ---
 
-### 3.3 Multi-Criteria Profile Scoring
+### 3.4 Multi-Criteria Profile Scoring
 
 The system calculates a score for each candidate using several criteria.
 
@@ -197,7 +300,7 @@ The system also returns an explanation and score breakdown, making the decision 
 
 ---
 
-### 3.4 Automatic Single Task Allocation
+### 3.5 Automatic Single Task Allocation
 
 The system can automatically assign a task to the most suitable team member.
 
@@ -214,11 +317,28 @@ Workflow:
 9. Increase the selected member workload.
 10. Create a notification.
 
-If no candidate is suitable, the task can be moved to manual review.
+If no candidate is suitable, the task is moved to manual review.
 
 ---
 
-### 3.5 Delayed Task Reassignment
+### 3.6 Manual Review Fallback
+
+If the system cannot find a suitable candidate, it does not assign the task randomly.
+
+Instead, it moves the task to manual review.
+
+This happens when:
+
+- no team member has the required skills;
+- all candidates have low scores;
+- workload or availability constraints reduce suitability;
+- role and taxonomy compatibility are weak.
+
+This is important because the system is designed as a decision-support assistant, not as an unsafe automatic decision-maker.
+
+---
+
+### 3.7 Delayed Task Reassignment
 
 The system supports reassignment of delayed tasks.
 
@@ -239,7 +359,7 @@ If no replacement is suitable, the task is moved to manual review.
 
 ---
 
-### 3.6 Workload Analysis
+### 3.8 Workload Analysis
 
 The system analyzes workload distribution inside a project.
 
@@ -247,6 +367,7 @@ It helps detect:
 
 - overloaded team members;
 - underused team members;
+- balanced team members;
 - workload imbalance;
 - possible redistribution opportunities.
 
@@ -254,7 +375,7 @@ This supports better project coordination and fairer task distribution.
 
 ---
 
-### 3.7 Conflict Detection and Resolution Suggestions
+### 3.9 Conflict Detection and Resolution Suggestions
 
 The system can detect assignment conflicts.
 
@@ -264,7 +385,7 @@ This prevents unrealistic allocation where one person receives too many importan
 
 ---
 
-### 3.8 Template-Based Project Decomposition and Multi-Task Allocation
+### 3.10 Template-Based Project Decomposition and Multi-Task Allocation
 
 The system supports two task creation modes:
 
@@ -283,7 +404,7 @@ The system then:
 2. Assigns required skills to each generated task.
 3. Maps complexity to priority and estimated effort.
 4. Prevents duplicate task creation by default.
-5. Runs automatic allocation for every generated task.
+5. Can run automatic allocation for generated tasks.
 6. Returns assigned members, scores, explanations, and manual review cases.
 
 This feature is rule-based and does not use AI or free-text generation.
@@ -325,6 +446,81 @@ high   → priority = critical, estimated_effort = 0.4
 ```
 
 This is one of the strongest complex features of the project because it combines project decomposition, task generation, required skill mapping, workload-aware allocation, explainable scoring, and manual review fallback.
+
+---
+
+### 3.11 Controlled Delete Workflows
+
+The manager can delete projects, team members, and tasks from the UI.
+
+Delete workflows are controlled to preserve system consistency.
+
+#### Delete Project
+
+When a project is deleted, the system removes:
+
+- project;
+- project tasks;
+- task assignments;
+- task required skills;
+- team members in the project;
+- team member skills.
+
+#### Delete Team Member
+
+When a team member is deleted:
+
+- the team member is removed;
+- their skills are removed;
+- their assignments are removed;
+- assigned/in-progress/delayed tasks are released back to `open`;
+- released tasks can be allocated again to another suitable team member.
+
+#### Delete Task
+
+When a task is deleted, the system removes:
+
+- task;
+- task assignments;
+- task required skills.
+
+This adds complete CRUD behavior while still preserving allocation logic.
+
+---
+
+### 3.12 Team Member Login Account Creation
+
+Managers can create and link login accounts for existing team-member profiles.
+
+Workflow:
+
+1. Manager opens a team member full profile.
+2. If the profile is not linked to a user account, the manager enters email and temporary password.
+3. The system creates a `team_member` user account.
+4. The password is hashed.
+5. The new user account is linked to the existing team-member profile.
+
+This avoids manual database editing and makes account management easier.
+
+---
+
+## Main Web Pages
+
+The system includes a server-side rendered web interface.
+
+Main UI pages:
+
+- `/login` — login page;
+- `/register` — public registration for team members;
+- `/` — manager dashboard;
+- `/projects-ui` — project management;
+- `/team-members-ui` — team member management;
+- `/team-members-ui/{team_member_id}` — full employee profile;
+- `/skills-ui` — skill creation and skill assignment;
+- `/tasks-ui` — task creation, progress monitoring, allocation actions, template generation;
+- `/analytics-ui` — project analytics;
+- `/notifications-ui` — notifications page;
+- `/my-tasks` — team member personal task page.
 
 ---
 
@@ -429,6 +625,19 @@ GET /notifications/user/{user_id}
 PATCH /notifications/{notification_id}/read
 ```
 
+### Protected UI Actions
+
+```http
+POST /projects-ui/{project_id}/delete
+POST /team-members-ui/{team_member_id}/delete
+POST /team-members-ui/{team_member_id}/create-user-account
+POST /tasks-ui/{task_id}/delete
+POST /skills-ui/team-members/{team_member_id}/skills/{skill_id}/remove
+POST /my-profile/status
+POST /my-tasks/{assignment_id}/status
+POST /notifications-ui/{notification_id}/read
+```
+
 ---
 
 ## Example Template-Based Request
@@ -476,7 +685,8 @@ task-allocation-assistant/
 │   │   ├── assignments.py
 │   │   ├── notifications.py
 │   │   ├── analytics.py
-│   │   └── project_templates.py
+│   │   ├── project_templates.py
+│   │   └── users.py
 │   │
 │   ├── services/
 │   │   ├── allocation_engine.py
@@ -490,26 +700,49 @@ task-allocation-assistant/
 │   │   ├── reminder_service.py
 │   │   └── scheduler_service.py
 │   │
-│   └── templates/
-│       ├── base.html
-│       ├── dashboard.html
-│       ├── projects.html
-│       ├── tasks.html
-│       └── team_members.html
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── login.html
+│   │   ├── register.html
+│   │   ├── projects.html
+│   │   ├── team_members.html
+│   │   ├── team_member_profile.html
+│   │   ├── skills.html
+│   │   ├── tasks.html
+│   │   ├── analytics.html
+│   │   ├── notifications.html
+│   │   └── my_tasks.html
+│   │
+│   └── static/
+│       ├── css/
+│       │   └── style.css
+│       └── js/
 │
 ├── tests/
-│   ├── test_profile_scoring.py
 │   ├── test_allocation_engine.py
-│   ├── test_reassignment_engine.py
+│   ├── test_conflict_resolver.py
+│   ├── test_crud.py
+│   ├── test_notification_service.py
+│   ├── test_profile_scoring.py
+│   ├── test_project_template_router_logic.py
 │   ├── test_project_template_service.py
-│   └── test_project_template_router_logic.py
+│   ├── test_reassignment_engine.py
+│   ├── test_reminder_service.py
+│   └── test_workload_balancer.py
 │
 ├── docs/
-│   ├── allocation_algorithm.md
-│   └── template_based_project_decomposition.md
+│   ├── backlog.md
+│   ├── requirements.md
+│   ├── uml_diagrams.md
+│   ├── testing_plan.md
+│   ├── project_structure.md
+│   ├── final_report_outline.md
+│   └── demo_scenario.md
 │
 ├── requirements.txt
-└── README.md
+├── README.md
+└── task_allocation.db
 ```
 
 ---
@@ -542,11 +775,19 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### 5. Open Swagger API Documentation
+### 5. Open the web interface
+
+```text
+http://127.0.0.1:8000
+```
+
+### 6. Open protected Swagger documentation
 
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+Swagger is protected and requires manager login.
 
 ---
 
@@ -556,11 +797,40 @@ http://127.0.0.1:8000/docs
 PYTHONPATH=. pytest
 ```
 
-Current test status:
+The project includes automated tests for:
 
-```text
-36 passed
-```
+- CRUD operations;
+- profile scoring;
+- allocation engine;
+- delayed task reassignment;
+- workload balancing;
+- conflict detection;
+- notification service;
+- reminder service;
+- project template service;
+- project template router logic.
+
+---
+
+## Demo Workflow
+
+A possible demonstration scenario:
+
+1. Log in as manager.
+2. Create a project.
+3. Add team members with different roles and profiles.
+4. Create skills and attach them to team members.
+5. Create a task with required skills.
+6. Preview candidate scoring.
+7. Run automatic allocation.
+8. Open the assigned employee profile.
+9. Log in as the team member.
+10. Update mood/status.
+11. Start and complete the assigned task.
+12. Return as manager and view notifications.
+13. Delete a team member and show that their task is released for reallocation.
+14. Generate multiple tasks from a project template.
+15. Show workload analytics and conflict detection.
 
 ---
 
@@ -572,28 +842,37 @@ Implemented:
 - SQLite database;
 - SQLAlchemy models;
 - CRUD endpoints;
+- protected manager routes;
+- public team-member registration;
+- password hashing;
 - team member profiles;
+- full employee profile UI;
+- manager-created login accounts for employees;
 - skill taxonomy;
 - role ontology;
+- skill assignment and skill removal;
 - profile scoring;
 - automatic task allocation;
+- manual review fallback;
 - delayed task reassignment;
 - workload analysis;
 - conflict detection;
 - conflict suggestions;
 - deadline reminders;
 - notification system;
+- manager notification visibility;
+- team member mood/status self-update;
+- controlled delete workflows for projects, members, and tasks;
 - template-based project decomposition;
 - multi-task generation and allocation;
 - automated tests.
 
-Not yet fully completed:
+Not included:
 
-- frontend interface;
-- final Software Engineering report;
-- additional tests for reminder and notification services;
-- final UML diagrams;
-- final project documentation.
+- Machine Learning;
+- Generative AI;
+- external email verification service;
+- production deployment configuration.
 
 ---
 
@@ -613,19 +892,22 @@ Planned sections:
    - Third-party services and libraries
    - Complex functionalities
 7. Increment 1: CRUD and Data Management
-8. Increment 2: Supporting Services and Notifications
+8. Increment 2: Authentication, UI, and Supporting Services
 9. Increment 3: Complex Allocation Logic
-10. Increment 4: Template-Based Project Decomposition and Multi-Task Allocation
-11. UML Diagrams
+10. Increment 4: Monitoring, Notifications, and Reassignment
+11. Increment 5: Template-Based Project Decomposition and Multi-Task Allocation
+12. Increment 6: Final UI, Delete Workflows, and Account Linking
+13. UML Diagrams
     - Use Case Diagram
     - Class Diagram
     - Activity Diagram for Single Task Allocation
     - Activity Diagram for Template-Based Project Decomposition
     - Sequence Diagram for Delayed Task Reassignment
     - Activity Diagram for Deadline Reminder and Overdue Detection
-12. Testing
-13. Evaluation
-14. Conclusion
+    - Activity Diagram for Team Member Account Linking
+14. Testing
+15. Evaluation
+16. Conclusion
 
 ---
 
