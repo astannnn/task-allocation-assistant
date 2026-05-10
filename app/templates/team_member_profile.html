@@ -108,22 +108,71 @@
 </section>
 
 <section class="section">
+    <h2>Login Account</h2>
+
+    {% if linked_user %}
+    <p>
+        This team member is already linked to a login account.
+    </p>
+
+    <div class="profile-details-grid">
+        <div class="profile-detail-card">
+            <strong>User ID</strong>
+            <p>{{ linked_user.id }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Name</strong>
+            <p>{{ linked_user.name }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Email</strong>
+            <p>{{ linked_user.email }}</p>
+        </div>
+
+        <div class="profile-detail-card">
+            <strong>Role</strong>
+            <p>{{ linked_user.role }}</p>
+        </div>
+    </div>
+    {% else %}
+    <p>
+        This team member does not have a login account yet.
+        Create and link a team-member account so the employee can log in and view assigned tasks.
+    </p>
+
+    <form method="post" action="/team-members-ui/{{ team_member.id }}/create-user-account" class="form-card">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="employee@example.com" required>
+
+        <label>Temporary Password</label>
+        <input type="password" name="password" placeholder="Temporary password" required>
+
+        <button type="submit">
+            Create Account and Link
+        </button>
+    </form>
+    {% endif %}
+</section>
+
+<section class="section">
     <h2>Deep Profile Indicators</h2>
 
     <div class="profile-details-grid">
         <div class="profile-detail-card">
             <strong>Availability</strong>
-            <p>{{ team_member.availability }}</p>
+            <p>{{ "%.1f"|format(team_member.availability) }}</p>
         </div>
 
         <div class="profile-detail-card">
             <strong>Workload</strong>
-            <p>{{ team_member.workload }}</p>
+            <p>{{ "%.1f"|format(team_member.workload) }}</p>
         </div>
 
         <div class="profile-detail-card">
             <strong>Reliability</strong>
-            <p>{{ team_member.reliability }}</p>
+            <p>{{ "%.2f"|format(team_member.reliability) }}</p>
         </div>
 
         <div class="profile-detail-card">

@@ -182,9 +182,6 @@ def register_user_ui(
             }
         )
 
-    # Security rule:
-    # Public registration always creates only team_member accounts.
-    # Manager accounts must be predefined or created administratively.
     user_role = "team_member"
 
     user = models.User(
@@ -588,6 +585,65 @@ def delete_team_member_ui(
     return RedirectResponse(url="/team-members-ui", status_code=303)
 
 
+@app.post("/team-members-ui/{team_member_id}/create-user-account")
+def create_team_member_user_account_ui(
+    team_member_id: int,
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    team_member = db.query(models.TeamMember).filter(
+        models.TeamMember.id == team_member_id
+    ).first()
+
+    if not team_member:
+        return RedirectResponse(url="/team-members-ui", status_code=303)
+
+    if team_member.user_id:
+        return RedirectResponse(
+            url=f"/team-members-ui/{team_member_id}",
+            status_code=303
+        )
+
+    existing_user = db.query(models.User).filter(
+        models.User.email == email
+    ).first()
+
+    if existing_user:
+        team_member.user_id = existing_user.id
+        db.commit()
+
+        return RedirectResponse(
+            url=f"/team-members-ui/{team_member_id}",
+            status_code=303
+        )
+
+    new_user = models.User(
+        name=team_member.name,
+        email=email,
+        password_hash=hash_password(password),
+        role="team_member"
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    team_member.user_id = new_user.id
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/team-members-ui/{team_member_id}",
+        status_code=303
+    )
+
+
 @app.get("/team-members-ui/{team_member_id}")
 def team_member_profile_ui(
     team_member_id: int,
@@ -730,6 +786,30 @@ def skills_ui(
             "current_user": current_user
         }
     )
+
+
+@app.post("/skills-ui/team-members/{team_member_id}/skills/{skill_id}/remove")
+def remove_team_member_skill_ui(
+    team_member_id: int,
+    skill_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    team_member_skill = db.query(models.TeamMemberSkill).filter(
+        models.TeamMemberSkill.team_member_id == team_member_id,
+        models.TeamMemberSkill.skill_id == skill_id
+    ).first()
+
+    if team_member_skill:
+        db.delete(team_member_skill)
+        db.commit()
+
+    return RedirectResponse(url="/skills-ui", status_code=303)
 
 
 @app.get("/tasks-ui")
