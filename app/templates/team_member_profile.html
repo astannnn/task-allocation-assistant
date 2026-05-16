@@ -63,11 +63,11 @@
         </div>
 
         <div class="profile-summary-card">
-            <span class="summary-label">Average Score</span>
+            <span class="summary-label">Average Allocation Score</span>
             {% if profile_summary.average_assignment_score is not none %}
-            <strong>{{ profile_summary.average_assignment_score }}</strong>
+            <strong>{{ "%.1f"|format(profile_summary.average_assignment_score * 100) }}%</strong>
             {% else %}
-            <strong>N/A</strong>
+            <strong>Not calculated yet</strong>
             {% endif %}
         </div>
     </div>
@@ -272,14 +272,15 @@
                     </td>
 
                     <td>
-                        {% if assignment.score is defined and assignment.score is not none %}
-                        {{ assignment.score }}
+                        {% if assignment.score_at_assignment is defined and assignment.score_at_assignment is not none
+                        %}
+                        {{ "%.1f"|format(assignment.score_at_assignment * 100) }}%
                         {% elif assignment.allocation_score is defined and assignment.allocation_score is not none %}
-                        {{ assignment.allocation_score }}
+                        {{ "%.1f"|format(assignment.allocation_score * 100) }}%
                         {% elif assignment.matching_score is defined and assignment.matching_score is not none %}
-                        {{ assignment.matching_score }}
+                        {{ "%.1f"|format(assignment.matching_score * 100) }}%
                         {% else %}
-                        N/A
+                        Not calculated yet
                         {% endif %}
                     </td>
                 </tr>

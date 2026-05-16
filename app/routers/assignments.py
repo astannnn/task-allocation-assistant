@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,6 +20,11 @@ router = APIRouter(
     prefix="/assignments",
     tags=["Assignments"]
 )
+
+
+class ManualAssignmentRequest(BaseModel):
+    task_id: int
+    team_member_id: int
 
 
 @router.get("/preview/{task_id}")
@@ -72,6 +79,84 @@ def auto_allocate_task(task_id: int, db: Session = Depends(get_db)):
             )
 
     return result
+
+
+@router.post("/manual-assign")
+def manually_assign_task(
+    assignment_data: ManualAssignmentRequest,
+    db: Session = Depends(get_db)
+):
+    task = db.query(models.Task).filter(
+        models.Task.id == assignment_data.task_id
+    ).first()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    team_member = db.query(models.TeamMember).filter(
+        models.TeamMember.id == assignment_data.team_member_id
+    ).first()
+
+    if not team_member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+
+    if task.project_id != team_member.project_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Task and team member must belong to the same project"
+        )
+
+    task_effort = getattr(task, "estimated_effort", 0) or 0
+
+    previous_active_assignments = db.query(models.Assignment).filter(
+        models.Assignment.task_id == task.id,
+        models.Assignment.status == "active"
+    ).all()
+
+    for previous_assignment in previous_active_assignments:
+        previous_assignment.status = "inactive"
+
+        if previous_assignment.team_member:
+            previous_workload = previous_assignment.team_member.workload or 0
+            previous_assignment.team_member.workload = max(
+                0,
+                previous_workload - task_effort
+            )
+
+    new_assignment = models.Assignment(
+        task_id=task.id,
+        team_member_id=team_member.id,
+        assigned_at=datetime.utcnow(),
+        status="active",
+        score_at_assignment=None
+    )
+
+    current_workload = team_member.workload or 0
+    team_member.workload = current_workload + task_effort
+
+    task.status = "assigned"
+
+    db.add(new_assignment)
+    db.commit()
+    db.refresh(new_assignment)
+
+    create_task_assignment_notification(
+        db=db,
+        task=task,
+        team_member=team_member,
+    )
+
+    return {
+        "success": True,
+        "message": "Task manually assigned successfully",
+        "assignment_id": new_assignment.id,
+        "task_id": task.id,
+        "team_member_id": team_member.id,
+        "team_member_name": team_member.name,
+        "task_status": task.status,
+        "assignment_status": new_assignment.status,
+        "score_at_assignment": new_assignment.score_at_assignment
+    }
 
 
 @router.get("/", response_model=List[schemas.AssignmentResponse])

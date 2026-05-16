@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -43,14 +44,35 @@ def get_skill(skill_id: int, db: Session = Depends(get_db)):
     return skill
 
 
-@router.delete("/{skill_id}")
-def delete_skill(skill_id: int, db: Session = Depends(get_db)):
+def remove_skill_and_related_links(skill_id: int, db: Session):
     skill = db.query(models.Skill).filter(models.Skill.id == skill_id).first()
 
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
 
+    db.query(models.TeamMemberSkill).filter(
+        models.TeamMemberSkill.skill_id == skill_id
+    ).delete(synchronize_session=False)
+
+    db.query(models.TaskRequiredSkill).filter(
+        models.TaskRequiredSkill.skill_id == skill_id
+    ).delete(synchronize_session=False)
+
     db.delete(skill)
     db.commit()
 
+    return skill
+
+
+@router.delete("/{skill_id}")
+def delete_skill(skill_id: int, db: Session = Depends(get_db)):
+    remove_skill_and_related_links(skill_id, db)
+
     return {"message": "Skill deleted successfully"}
+
+
+@router.post("/{skill_id}/delete")
+def delete_skill_from_ui(skill_id: int, db: Session = Depends(get_db)):
+    remove_skill_and_related_links(skill_id, db)
+
+    return RedirectResponse(url="/skills", status_code=303)

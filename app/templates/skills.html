@@ -30,7 +30,10 @@
 
 <section class="section">
     <h2>Skills List</h2>
-    <p>All skills currently available in the system.</p>
+    <p>
+        All skills currently available in the system.
+        A manager can remove a skill from the whole system if it is no longer needed.
+    </p>
 
     <button type="button" onclick="loadSkills()">Refresh Skills</button>
 
@@ -203,10 +206,20 @@
                 item.className = "list-item";
 
                 item.innerHTML = `
-                    <h3>${escapeHtml(skillName)}</h3>
-                    <p><strong>Skill ID:</strong> ${skill.id}</p>
-                    <p><strong>Type:</strong> ${escapeHtml(skill.type)}</p>
-                    <p><strong>Category:</strong> ${escapeHtml(skill.category || "No category")}</p>
+                    <div class="list-item-header">
+                        <div>
+                            <h3>${escapeHtml(skillName)}</h3>
+                            <p><strong>Skill ID:</strong> ${skill.id}</p>
+                            <p><strong>Type:</strong> ${escapeHtml(skill.type)}</p>
+                            <p><strong>Category:</strong> ${escapeHtml(skill.category || "No category")}</p>
+                        </div>
+
+                        <button type="button"
+                                class="delete-button"
+                                onclick="removeGlobalSkill(${skill.id}, '${escapeHtml(skillName)}')">
+                            Remove Skill
+                        </button>
+                    </div>
                 `;
 
                 skillsList.appendChild(item);
@@ -214,6 +227,39 @@
         } catch (error) {
             skillsList.innerHTML = "<p class='error'>Failed to load skills.</p>";
             attachSkillSelect.innerHTML = '<option value="">Failed to load skills</option>';
+        }
+    }
+
+    async function removeGlobalSkill(skillId, skillName) {
+        const confirmed = confirm(
+            `Remove skill "${skillName}" from the system? This will also remove it from team members and task requirements.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        const message = document.getElementById("skill-message");
+
+        try {
+            const response = await fetch(`/skills/${skillId}`, {
+                method: "DELETE"
+            });
+
+            if (!response.ok) {
+                message.textContent = "Failed to remove skill.";
+                message.className = "message error";
+                return;
+            }
+
+            message.textContent = `Skill "${skillName}" removed successfully.`;
+            message.className = "message success";
+
+            await loadSkills();
+            await loadSelectedTeamMemberSkills();
+        } catch (error) {
+            message.textContent = "Error while removing skill.";
+            message.className = "message error";
         }
     }
 

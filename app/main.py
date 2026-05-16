@@ -122,7 +122,12 @@ def calculate_completion_rate(total_assignments: int, completed_assignments: int
 
 
 def get_assignment_score_safely(assignment):
-    score_fields = ["score", "allocation_score", "matching_score"]
+    score_fields = [
+        "score_at_assignment",
+        "score",
+        "allocation_score",
+        "matching_score",
+    ]
 
     for field in score_fields:
         score_value = getattr(assignment, field, None)

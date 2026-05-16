@@ -55,20 +55,45 @@
 </section>
 
 <section class="section">
-    <h2>Team Member Profiles</h2>
+    <h2>Find Employee</h2>
     <p>
-        Existing team members for the selected project. Open a full profile to inspect
-        skills, workload, task history and allocation-related indicators.
+        Search across all team members from all projects. This view is only for inspection,
+        so it provides access to the full profile without deleting the employee.
     </p>
 
-    <button type="button" onclick="loadTeamMembers()">Refresh Team Members</button>
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="global-team-member-search" type="text"
+            placeholder="Search employee by name, role, project ID, status, or mood..."
+            oninput="renderGlobalTeamMembers()">
+    </div>
 
-    <div id="team-members-list" class="list">
+    <button type="button" onclick="loadAllTeamMembers()">Refresh Search Results</button>
+
+    <div id="global-team-members-list" class="list">
+        Start typing to search employees.
+    </div>
+</section>
+
+<section class="section">
+    <h2>Project Team Members</h2>
+    <p>
+        Select a project in the form above to view only the team members of that project.
+        In this project-specific view, the manager can open the full profile or delete the member
+        from the project.
+    </p>
+
+    <button type="button" onclick="loadProjectTeamMembers()">Refresh Project Team Members</button>
+
+    <div id="project-team-members-list" class="list">
         Select a project to load team members.
     </div>
 </section>
 
 <script>
+    let allTeamMembers = [];
+    let projectTeamMembers = [];
+
     function escapeHtml(value) {
         if (value === null || value === undefined) {
             return "";
@@ -160,12 +185,36 @@
         }
     }
 
-    async function loadTeamMembers() {
+    async function loadAllTeamMembers() {
+        const list = document.getElementById("global-team-members-list");
+
+        try {
+            const response = await fetch("/team-members/");
+            const members = await response.json();
+
+            if (!members || members.length === 0) {
+                allTeamMembers = [];
+                updateNameAndRoleOptions([]);
+                list.innerHTML = "<p>No team members found.</p>";
+                return;
+            }
+
+            allTeamMembers = members;
+            updateNameAndRoleOptions(members);
+            renderGlobalTeamMembers();
+        } catch (error) {
+            allTeamMembers = [];
+            updateNameAndRoleOptions([]);
+            list.innerHTML = "<p class='error'>Failed to load team members.</p>";
+        }
+    }
+
+    async function loadProjectTeamMembers() {
         const projectId = document.getElementById("project-id").value;
-        const list = document.getElementById("team-members-list");
+        const list = document.getElementById("project-team-members-list");
 
         if (!projectId) {
-            updateNameAndRoleOptions([]);
+            projectTeamMembers = [];
             list.innerHTML = "<p>Please select a project first.</p>";
             return;
         }
@@ -175,63 +224,138 @@
             const members = await response.json();
 
             if (!members || members.length === 0) {
-                updateNameAndRoleOptions([]);
+                projectTeamMembers = [];
                 list.innerHTML = "<p>No team members found for this project.</p>";
                 return;
             }
 
+            projectTeamMembers = members;
             updateNameAndRoleOptions(members);
-
-            list.innerHTML = "";
-
-            members.forEach(member => {
-                const item = document.createElement("div");
-                item.className = "list-item team-member-card";
-
-                const availabilityValue = formatNumber(member.availability, 1);
-                const workloadValue = formatNumber(member.workload, 1);
-                const reliabilityValue = formatNumber(member.reliability, 2);
-
-                item.innerHTML = `
-                    <div class="team-member-card-header">
-                        <div class="team-member-title-block">
-                            <h3>${escapeHtml(member.name)}</h3>
-                            <p class="muted-text">${escapeHtml(member.role)}</p>
-                        </div>
-
-                        <div class="card-actions team-member-actions">
-                            <a class="secondary-link-button" href="/team-members-ui/${member.id}">
-                                View Full Profile
-                            </a>
-
-                            <form method="post"
-                                  action="/team-members-ui/${member.id}/delete"
-                                  onsubmit="return confirm('Delete this team member? Their assigned tasks will become open again and can be reassigned.');">
-                                <button type="submit" class="delete-button">
-                                    Delete Member
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <div class="profile-mini-grid">
-                        <p><strong>Specialist ID:</strong> ${member.id}</p>
-                        <p><strong>Availability:</strong> ${availabilityValue}</p>
-                        <p><strong>Workload:</strong> ${workloadValue}</p>
-                        <p><strong>Reliability:</strong> ${reliabilityValue}</p>
-                        <p><strong>Dynamic Status:</strong> ${escapeHtml(member.dynamic_status)}</p>
-                        <p><strong>Mood State:</strong> ${escapeHtml(member.mood_state)}</p>
-                    </div>
-                `;
-
-                list.appendChild(item);
-            });
+            renderProjectTeamMembers();
         } catch (error) {
-            list.innerHTML = "<p class='error'>Failed to load team members.</p>";
+            projectTeamMembers = [];
+            list.innerHTML = "<p class='error'>Failed to load team members for this project.</p>";
         }
     }
 
-    document.getElementById("project-id").addEventListener("change", loadTeamMembers);
+    function memberMatchesSearch(member, searchValue) {
+        const searchableText = `
+            ${member.id || ""}
+            ${member.project_id || ""}
+            ${member.name || ""}
+            ${member.role || ""}
+            ${member.availability || ""}
+            ${member.workload || ""}
+            ${member.reliability || ""}
+            ${member.dynamic_status || ""}
+            ${member.mood_state || ""}
+        `.toLowerCase();
+
+        return searchableText.includes(searchValue);
+    }
+
+    function createTeamMemberCard(member, allowDelete) {
+        const item = document.createElement("div");
+        item.className = "list-item team-member-card";
+
+        const availabilityValue = formatNumber(member.availability, 1);
+        const workloadValue = formatNumber(member.workload, 1);
+        const reliabilityValue = formatNumber(member.reliability, 2);
+
+        const deleteAction = allowDelete
+            ? `
+                <form method="post"
+                      action="/team-members-ui/${member.id}/delete"
+                      onsubmit="return confirm('Delete this team member? Their assigned tasks will become open again and can be reassigned.');">
+                    <button type="submit" class="delete-button">
+                        Delete Member
+                    </button>
+                </form>
+            `
+            : "";
+
+        item.innerHTML = `
+            <div class="team-member-card-header">
+                <div class="team-member-title-block">
+                    <h3>${escapeHtml(member.name)}</h3>
+                    <p class="muted-text">${escapeHtml(member.role)}</p>
+                </div>
+
+                <div class="card-actions team-member-actions">
+                    <a class="secondary-link-button" href="/team-members-ui/${member.id}">
+                        View Full Profile
+                    </a>
+
+                    ${deleteAction}
+                </div>
+            </div>
+
+            <div class="profile-mini-grid">
+                <p><strong>Specialist ID:</strong> ${member.id}</p>
+                <p><strong>Project ID:</strong> ${member.project_id}</p>
+                <p><strong>Availability:</strong> ${availabilityValue}</p>
+                <p><strong>Workload:</strong> ${workloadValue}</p>
+                <p><strong>Reliability:</strong> ${reliabilityValue}</p>
+                <p><strong>Dynamic Status:</strong> ${escapeHtml(member.dynamic_status)}</p>
+                <p><strong>Mood State:</strong> ${escapeHtml(member.mood_state)}</p>
+            </div>
+        `;
+
+        return item;
+    }
+
+    function renderGlobalTeamMembers() {
+        const list = document.getElementById("global-team-members-list");
+        const searchInput = document.getElementById("global-team-member-search");
+
+        const searchValue = searchInput
+            ? searchInput.value.toLowerCase().trim()
+            : "";
+
+        if (!searchValue) {
+            list.innerHTML = "<p>Start typing to search employees.</p>";
+            return;
+        }
+
+        if (!allTeamMembers || allTeamMembers.length === 0) {
+            list.innerHTML = "<p>No team members found.</p>";
+            return;
+        }
+
+        const filteredMembers = allTeamMembers.filter(member => {
+            return memberMatchesSearch(member, searchValue);
+        });
+
+        if (filteredMembers.length === 0) {
+            list.innerHTML = "<p>No employees match your search.</p>";
+            return;
+        }
+
+        list.innerHTML = "";
+
+        filteredMembers.forEach(member => {
+            const item = createTeamMemberCard(member, false);
+            list.appendChild(item);
+        });
+    }
+
+    function renderProjectTeamMembers() {
+        const list = document.getElementById("project-team-members-list");
+
+        if (!projectTeamMembers || projectTeamMembers.length === 0) {
+            list.innerHTML = "<p>No team members found for this project.</p>";
+            return;
+        }
+
+        list.innerHTML = "";
+
+        projectTeamMembers.forEach(member => {
+            const item = createTeamMemberCard(member, true);
+            list.appendChild(item);
+        });
+    }
+
+    document.getElementById("project-id").addEventListener("change", loadProjectTeamMembers);
 
     document.getElementById("team-member-form").addEventListener("submit", async function (event) {
         event.preventDefault();
@@ -279,7 +403,8 @@
             document.getElementById("team-member-form").reset();
             document.getElementById("project-id").value = projectId;
 
-            await loadTeamMembers();
+            await loadAllTeamMembers();
+            await loadProjectTeamMembers();
         } catch (error) {
             message.textContent = "Error while creating team member.";
             message.className = "message error";
@@ -287,6 +412,7 @@
     });
 
     loadProjectsForTeamMembers();
+    loadAllTeamMembers();
     updateNameAndRoleOptions([]);
 </script>
 {% endblock %}

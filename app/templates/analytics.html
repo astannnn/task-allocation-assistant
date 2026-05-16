@@ -3,6 +3,89 @@
 {% block content %}
 <h1 class="page-title">Analytics</h1>
 
+<style>
+    .manual-assign-box {
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #f8fafc;
+    }
+
+    .manual-assign-box label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 700;
+        color: #1f2937;
+        line-height: 1.2;
+    }
+
+    .manual-assign-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .manual-assign-select {
+        flex: 1;
+        min-width: 210px;
+        padding: 11px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 500;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .manual-assign-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+
+    .manual-assign-button {
+        padding: 11px 18px;
+        border: none;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+    }
+
+    .manual-assign-button:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+    }
+
+    .manual-assign-button:active {
+        transform: translateY(0);
+    }
+
+    .manual-assign-hint {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    .recommended-actions-card {
+        border-left: 5px solid #2563eb;
+        background: #f8fafc;
+    }
+
+    .recommended-actions-list p {
+        margin: 10px 0;
+        line-height: 1.45;
+    }
+</style>
+
 <section class="section">
     <h2>Project Analytics</h2>
     <p>
@@ -40,6 +123,7 @@
     <h2>Conflict Detection</h2>
     <p>
         Shows possible conflicts when several open tasks compete for the same suitable team member.
+        A manager can resolve a conflict by manually assigning a competing task to another team member.
     </p>
 
     <div id="conflicts-result" class="result-box">
@@ -59,6 +143,8 @@
 </section>
 
 <script>
+    let analyticsProjectMembers = [];
+
     async function loadProjectsForAnalytics() {
         const projectSelect = document.getElementById("analytics-project-id");
 
@@ -95,6 +181,28 @@
         return projectId;
     }
 
+    function formatNumber(value, digits = 2) {
+        if (value === null || value === undefined || value === "") {
+            return "N/A";
+        }
+
+        const numberValue = Number(value);
+
+        if (Number.isNaN(numberValue)) {
+            return value;
+        }
+
+        return numberValue.toFixed(digits);
+    }
+
+    function formatStatus(value) {
+        if (value === null || value === undefined || value === "") {
+            return "N/A";
+        }
+
+        return String(value).replaceAll("_", " ");
+    }
+
     function getWorkloadStatusClass(status) {
         if (status === "overloaded") {
             return "error";
@@ -108,7 +216,122 @@
             return "success";
         }
 
+        if (status === "available_capacity") {
+            return "success";
+        }
+
         return "";
+    }
+
+    function getRiskStatusClass(status) {
+        if (status === "high") {
+            return "error";
+        }
+
+        if (status === "medium") {
+            return "warning-text";
+        }
+
+        if (status === "low") {
+            return "success";
+        }
+
+        return "";
+    }
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return "";
+        }
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    async function loadAnalyticsProjectMembers(projectId) {
+        try {
+            const response = await fetch(`/team-members/project/${projectId}`);
+            const members = await response.json();
+
+            if (!response.ok || !members) {
+                analyticsProjectMembers = [];
+                return;
+            }
+
+            analyticsProjectMembers = members;
+        } catch (error) {
+            analyticsProjectMembers = [];
+        }
+    }
+
+    function renderTeamMemberOptions() {
+        if (!analyticsProjectMembers || analyticsProjectMembers.length === 0) {
+            return '<option value="">No team members available</option>';
+        }
+
+        let options = '<option value="">Select team member</option>';
+
+        analyticsProjectMembers.forEach(member => {
+            options += `
+                <option value="${member.id}">
+                    ${member.id} - ${escapeHtml(member.name)} (${escapeHtml(member.role)})
+                </option>
+            `;
+        });
+
+        return options;
+    }
+
+    async function manualAssignTask(taskId) {
+        const select = document.getElementById(`manual-member-${taskId}`);
+        const message = document.getElementById("analytics-message");
+
+        if (!select || !select.value) {
+            message.textContent = "Please select a team member before assigning the task.";
+            message.className = "message error";
+            return;
+        }
+
+        const confirmed = confirm(`Assign task ID ${taskId} to the selected team member?`);
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await fetch("/assignments/manual-assign", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    task_id: Number(taskId),
+                    team_member_id: Number(select.value)
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                message.textContent = result.detail || result.message || "Failed to assign task.";
+                message.className = "message error";
+                return;
+            }
+
+            message.textContent = `Task ID ${taskId} assigned successfully to ${result.team_member_name}.`;
+            message.className = "message success";
+
+            await loadWorkloadAnalysis();
+            await loadConflictDetection();
+            await loadRedistributionSuggestions();
+        } catch (error) {
+            message.textContent = "Error while assigning task.";
+            message.className = "message error";
+        }
     }
 
     async function loadWorkloadAnalysis() {
@@ -128,7 +351,7 @@
             if (!response.ok) {
                 resultBox.innerHTML = `
                     <h3 class="error">Failed to load workload analysis</h3>
-                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                    <p>${escapeHtml(result.detail || "Unexpected error while loading workload analysis.")}</p>
                 `;
                 return;
             }
@@ -145,14 +368,14 @@
 
                 membersHtml += `
                     <div class="analytics-card">
-                        <h3>${member.name}</h3>
-                        <p><strong>Role:</strong> ${member.role}</p>
-                        <p><strong>Workload:</strong> ${member.workload}</p>
-                        <p><strong>Availability:</strong> ${member.availability}</p>
-                        <p><strong>Reliability:</strong> ${member.reliability}</p>
-                        <p><strong>Dynamic Status:</strong> ${member.dynamic_status}</p>
-                        <p><strong>Mood State:</strong> ${member.mood_state}</p>
-                        <p><strong>Workload Status:</strong> <span class="${statusClass}">${member.workload_status}</span></p>
+                        <h3>${escapeHtml(member.name)}</h3>
+                        <p><strong>Role:</strong> ${escapeHtml(member.role)}</p>
+                        <p><strong>Workload:</strong> ${formatNumber(member.workload, 2)}</p>
+                        <p><strong>Availability:</strong> ${formatNumber(member.availability, 2)}</p>
+                        <p><strong>Reliability:</strong> ${formatNumber(member.reliability, 2)}</p>
+                        <p><strong>Dynamic Status:</strong> ${formatStatus(member.dynamic_status)}</p>
+                        <p><strong>Mood State:</strong> ${formatStatus(member.mood_state)}</p>
+                        <p><strong>Workload Status:</strong> <span class="${statusClass}">${formatStatus(member.workload_status)}</span></p>
                     </div>
                 `;
             });
@@ -160,10 +383,10 @@
             resultBox.innerHTML = `
                 <h3>Project Workload Summary</h3>
                 <p><strong>Project ID:</strong> ${result.project_id}</p>
-                <p><strong>Average Workload:</strong> ${result.average_workload}</p>
-                <p><strong>Balance Status:</strong> <span class="${getWorkloadStatusClass(result.balance_status)}">${result.balance_status}</span></p>
-                <p><strong>Overloaded Members:</strong> ${result.overloaded_members.length}</p>
-                <p><strong>Underloaded Members:</strong> ${result.underloaded_members.length}</p>
+                <p><strong>Average Workload:</strong> ${formatNumber(result.average_workload, 2)}</p>
+                <p><strong>Balance Status:</strong> <span class="${getWorkloadStatusClass(result.balance_status)}">${formatStatus(result.balance_status)}</span></p>
+                <p><strong>Overloaded Members:</strong> ${result.overloaded_members ? result.overloaded_members.length : 0}</p>
+                <p><strong>Underloaded Members:</strong> ${result.underloaded_members ? result.underloaded_members.length : 0}</p>
 
                 <h3>Team Members</h3>
                 <div class="analytics-grid">
@@ -186,13 +409,15 @@
         resultBox.innerHTML = "<p>Loading conflict detection...</p>";
 
         try {
+            await loadAnalyticsProjectMembers(projectId);
+
             const response = await fetch(`/analytics/project/${projectId}/conflicts`);
             const result = await response.json();
 
             if (!response.ok) {
                 resultBox.innerHTML = `
                     <h3 class="error">Failed to load conflict detection</h3>
-                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                    <p>${escapeHtml(result.detail || "Unexpected error while loading conflict detection.")}</p>
                 `;
                 return;
             }
@@ -200,8 +425,15 @@
             if (!result.conflicts || result.conflicts.length === 0) {
                 resultBox.innerHTML = `
                     <h3>No Conflicts Detected</h3>
-                    <p>${result.message || "There are no detected conflicts for this project."}</p>
-                    <p><strong>Task Recommendations:</strong> ${result.task_recommendations ? result.task_recommendations.length : 0}</p>
+                    <p>${escapeHtml(result.message || "There are no detected conflicts for this project.")}</p>
+                    <div class="analytics-card recommended-actions-card">
+                        <h3>Recommended Manager Actions</h3>
+                        <div class="recommended-actions-list">
+                            <p><strong>1.</strong> Continue monitoring workload and deadlines.</p>
+                            <p><strong>2.</strong> Use automatic allocation for new tasks.</p>
+                            <p><strong>3.</strong> Review workload analysis if the project becomes unbalanced.</p>
+                        </div>
+                    </div>
                 `;
                 return;
             }
@@ -209,37 +441,87 @@
             let conflictsHtml = "";
 
             result.conflicts.forEach((conflict, index) => {
+                let competingTasksHtml = "";
+
+                if (conflict.competing_tasks && conflict.competing_tasks.length > 0) {
+                    conflict.competing_tasks.forEach(task => {
+                        competingTasksHtml += `
+                            <div class="analytics-card">
+                                <h4>${escapeHtml(task.task_title || "Untitled Task")}</h4>
+                                <p><strong>Task ID:</strong> ${task.task_id || "N/A"}</p>
+                                <p><strong>Priority:</strong> ${formatStatus(task.priority)}</p>
+                                <p><strong>Deadline:</strong> ${task.deadline || "No deadline"}</p>
+                                <p><strong>Estimated Effort:</strong> ${formatNumber(task.estimated_effort, 2)}</p>
+                                <p><strong>Candidate Score:</strong> ${formatNumber(task.score, 2)}</p>
+
+                                <div class="manual-assign-box">
+                                    <label>Resolve conflict by assigning this task to:</label>
+
+                                    <div class="manual-assign-controls">
+                                        <select class="manual-assign-select" id="manual-member-${task.task_id}">
+                                            ${renderTeamMemberOptions()}
+                                        </select>
+
+                                        <button class="manual-assign-button" type="button" onclick="manualAssignTask(${task.task_id})">
+                                            Assign Task
+                                        </button>
+                                    </div>
+
+                                    <p class="manual-assign-hint">
+                                        Choose another suitable team member to avoid overloading the best candidate.
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    competingTasksHtml = "<p>No competing task details available.</p>";
+                }
+
                 conflictsHtml += `
                     <div class="analytics-card">
                         <h3>Conflict ${index + 1}</h3>
-                        <pre>${JSON.stringify(conflict, null, 2)}</pre>
+
+                        <div class="profile-mini-grid">
+                            <p><strong>Best Candidate:</strong> ${escapeHtml(conflict.team_member_name || "Unknown")}</p>
+                            <p><strong>Team Member ID:</strong> ${conflict.team_member_id || "N/A"}</p>
+                            <p><strong>Current Workload:</strong> ${formatNumber(conflict.current_workload, 2)}</p>
+                            <p><strong>Competing Tasks:</strong> ${conflict.number_of_competing_tasks || 0}</p>
+                            <p><strong>Total New Effort:</strong> ${formatNumber(conflict.total_new_effort, 2)}</p>
+                            <p><strong>Risk Level:</strong> <span class="${getRiskStatusClass(conflict.risk_level)}">${formatStatus(conflict.risk_level)}</span></p>
+                        </div>
+
+                        <p><strong>Reason:</strong> ${escapeHtml(conflict.reason || "Multiple open tasks have the same best candidate.")}</p>
+
+                        <h4>Competing Tasks</h4>
+                        <div class="analytics-grid">
+                            ${competingTasksHtml}
+                        </div>
                     </div>
                 `;
             });
 
-            let recommendationsHtml = "";
-
-            if (result.task_recommendations && result.task_recommendations.length > 0) {
-                result.task_recommendations.forEach((recommendation, index) => {
-                    recommendationsHtml += `
-                        <div class="analytics-card">
-                            <h3>Recommendation ${index + 1}</h3>
-                            <pre>${JSON.stringify(recommendation, null, 2)}</pre>
-                        </div>
-                    `;
-                });
-            } else {
-                recommendationsHtml = "<p>No task recommendations available.</p>";
-            }
+            const recommendationsHtml = `
+                <div class="analytics-card recommended-actions-card">
+                    <h3>Recommended Manager Actions</h3>
+                    <div class="recommended-actions-list">
+                        <p><strong>1.</strong> Review the high-risk conflict shown above.</p>
+                        <p><strong>2.</strong> Keep the most urgent or most important task assigned to the best candidate.</p>
+                        <p><strong>3.</strong> Assign the remaining competing tasks to alternative team members using the dropdowns above.</p>
+                        <p><strong>4.</strong> If no suitable alternative exists, update team member skills or keep the task in manual review.</p>
+                    </div>
+                </div>
+            `;
 
             resultBox.innerHTML = `
                 <h3>Conflicts Detected</h3>
                 <p><strong>Project ID:</strong> ${result.project_id}</p>
+
                 <div class="analytics-grid">
                     ${conflictsHtml}
                 </div>
 
-                <h3>Task Recommendations</h3>
+                <h3>Recommended Actions</h3>
                 <div class="analytics-grid">
                     ${recommendationsHtml}
                 </div>
@@ -266,7 +548,7 @@
             if (!response.ok) {
                 resultBox.innerHTML = `
                     <h3 class="error">Failed to load redistribution suggestions</h3>
-                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                    <p>${escapeHtml(result.detail || "Unexpected error while loading redistribution suggestions.")}</p>
                 `;
                 return;
             }
@@ -274,7 +556,7 @@
             if (!result.suggestions || result.suggestions.length === 0) {
                 resultBox.innerHTML = `
                     <h3>No Redistribution Needed</h3>
-                    <p>${result.message || "No redistribution suggestions are available for this project."}</p>
+                    <p>${escapeHtml(result.message || "No redistribution suggestions are available for this project.")}</p>
                 `;
                 return;
             }
@@ -282,10 +564,18 @@
             let suggestionsHtml = "";
 
             result.suggestions.forEach((suggestion, index) => {
+                const taskTitle = suggestion.task_title || suggestion.title || suggestion.task || "N/A";
+                const fromMember = suggestion.from_member || suggestion.current_assignee || suggestion.overloaded_member || "N/A";
+                const toMember = suggestion.to_member || suggestion.suggested_member || suggestion.recommended_member || "N/A";
+                const reason = suggestion.reason || suggestion.explanation || "Redistribution may improve workload balance.";
+
                 suggestionsHtml += `
                     <div class="analytics-card">
                         <h3>Suggestion ${index + 1}</h3>
-                        <pre>${JSON.stringify(suggestion, null, 2)}</pre>
+                        <p><strong>Task:</strong> ${escapeHtml(taskTitle)}</p>
+                        <p><strong>From:</strong> ${escapeHtml(fromMember)}</p>
+                        <p><strong>To:</strong> ${escapeHtml(toMember)}</p>
+                        <p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
                     </div>
                 `;
             });
