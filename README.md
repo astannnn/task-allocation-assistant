@@ -2,7 +2,7 @@
 
 A Software Engineering project developed as a rule-based intelligent project management assistant.
 
-The system helps managers and team leaders create projects, manage team members, define tasks, attach required skills, automatically allocate tasks, monitor workload, detect conflicts, reassign delayed tasks, manage notifications, and control project data through a web interface.
+The system helps managers and team leaders create projects, manage team members, define tasks, attach required skills, automatically allocate tasks, monitor workload, detect conflicts, manually resolve assignment conflicts, reassign delayed tasks, manage notifications, and control project data through a web interface.
 
 This project is not a simple task tracker. It is a decision-support system for task allocation and team coordination.
 
@@ -37,13 +37,17 @@ The system allows a manager to:
 
 - create and manage projects;
 - add and delete team members;
-- create and manage skills;
+- create, search, and manage skills;
+- remove global skills from the system when they are no longer needed;
 - attach and remove skills from specialists;
+- search employees across all projects;
+- view project-specific team members;
 - create and delete tasks;
 - create tasks with deadlines, priorities, estimated effort, and required skills;
 - automatically find the most suitable team member for a task;
 - analyze workload distribution;
 - detect assignment conflicts;
+- resolve assignment conflicts directly from the Analytics page using manual assignment;
 - reassign delayed tasks;
 - receive and inspect notifications;
 - generate multiple tasks from predefined project templates;
@@ -70,11 +74,14 @@ Main manager capabilities:
 - manage team members;
 - create and link login accounts for employees;
 - manage skills and team-member skill profiles;
+- remove global skills and remove skills from individual specialists;
+- search employees globally and inspect project-specific team members;
 - create tasks and structured project tasks;
 - preview allocation results;
 - run automatic task allocation;
 - monitor task progress;
 - inspect full employee profiles;
+- inspect average allocation score in employee profiles;
 - delete projects, members, and tasks;
 - view all system notifications.
 
@@ -129,11 +136,12 @@ Implemented DB-oriented functionalities include:
 - user management;
 - project creation, listing, and deletion;
 - team member creation, listing, profile display, and deletion;
-- skill creation and listing;
+- skill creation, listing, and deletion;
 - team-member skill assignment and removal;
 - task creation, listing, status update, and deletion;
 - task required skills;
 - assignment records;
+- manual assignment records for conflict resolution;
 - notifications;
 - task statuses;
 - project-based task and member retrieval;
@@ -212,6 +220,7 @@ These attributes are used by the allocation algorithm when selecting the most su
 Managers can open a full employee profile page to inspect:
 
 - profile summary;
+- average allocation score;
 - basic information;
 - linked user account;
 - deep profile indicators;
@@ -298,6 +307,8 @@ The scoring considers:
 
 The system also returns an explanation and score breakdown, making the decision transparent.
 
+The score is stored in the assignment record as `score_at_assignment`. Employee profiles use this stored value to display an Average Allocation Score, showing how suitable the employee was for tasks assigned by the allocation logic.
+
 ---
 
 ### 3.5 Automatic Single Task Allocation
@@ -375,13 +386,26 @@ This supports better project coordination and fairer task distribution.
 
 ---
 
-### 3.9 Conflict Detection and Resolution Suggestions
+### 3.9 Conflict Detection and Manual Conflict Resolution
 
 The system can detect assignment conflicts.
 
-For example, if several open tasks have the same best candidate, the system identifies this conflict and suggests which task should keep the candidate based on priority and urgency.
+For example, if several open tasks have the same best candidate, the system identifies this conflict and shows the competing tasks, candidate score, risk level, and reason.
 
 This prevents unrealistic allocation where one person receives too many important tasks at the same time.
+
+The Analytics page also allows the manager to resolve a detected conflict directly from the web interface. For each competing task, the manager can choose an alternative team member from the same project and manually assign the task.
+
+Conflict resolution workflow:
+
+1. The system detects that several open tasks compete for the same best candidate.
+2. The Analytics page shows the conflict, risk level, and competing tasks.
+3. The manager reviews task priority, deadline, effort, and candidate score.
+4. The manager keeps the most important task for the best candidate.
+5. The manager assigns remaining tasks to alternative team members using the dropdown in the conflict card.
+6. The system creates or updates the assignment, updates task status, adjusts workload, and creates a notification.
+
+This keeps the system explainable: the algorithm detects the risk, but the manager can make the final decision when human judgement is needed.
 
 ---
 
@@ -514,13 +538,30 @@ Main UI pages:
 - `/register` — public registration for team members;
 - `/` — manager dashboard;
 - `/projects-ui` — project management;
-- `/team-members-ui` — team member management;
+- `/team-members-ui` — team member management, global employee search, and project-specific team members;
 - `/team-members-ui/{team_member_id}` — full employee profile;
-- `/skills-ui` — skill creation and skill assignment;
+- `/skills-ui` — skill creation, global skill removal, skill assignment, and specialist skill removal;
 - `/tasks-ui` — task creation, progress monitoring, allocation actions, template generation;
-- `/analytics-ui` — project analytics;
+- `/analytics-ui` — workload analysis, conflict detection, manual conflict resolution, and redistribution suggestions;
 - `/notifications-ui` — notifications page;
 - `/my-tasks` — team member personal task page.
+
+---
+
+## Recent UI Improvements
+
+The latest version includes several UI and workflow improvements:
+
+- employee profiles now display Average Allocation Score based on stored assignment scores;
+- the Team Members page supports global employee search across all projects;
+- the Team Members page also preserves project-specific member listing with View Full Profile and Delete Member actions;
+- the Skills page supports deleting a global skill from the system;
+- the Skills page still supports removing a skill only from a selected specialist;
+- the Analytics page displays workload and conflict results as readable cards instead of raw JSON;
+- conflict detection includes manager actions, allowing a competing task to be manually assigned to another team member directly from the Analytics page;
+- analytics values such as workload, availability, and reliability are formatted consistently.
+
+These changes improve the demonstration flow and make the system easier to explain during the project defence.
 
 ---
 
@@ -590,6 +631,7 @@ GET /tasks/{task_id}/required-skills
 ```http
 GET /assignments/preview/{task_id}
 POST /assignments/auto-allocate/{task_id}
+POST /assignments/manual-assign
 GET /assignments/
 GET /assignments/task/{task_id}
 GET /assignments/member/{team_member_id}
@@ -633,6 +675,7 @@ POST /team-members-ui/{team_member_id}/delete
 POST /team-members-ui/{team_member_id}/create-user-account
 POST /tasks-ui/{task_id}/delete
 POST /skills-ui/team-members/{team_member_id}/skills/{skill_id}/remove
+DELETE /skills/{skill_id}
 POST /my-profile/status
 POST /my-tasks/{assignment_id}/status
 POST /notifications-ui/{notification_id}/read
@@ -828,9 +871,12 @@ A possible demonstration scenario:
 10. Update mood/status.
 11. Start and complete the assigned task.
 12. Return as manager and view notifications.
-13. Delete a team member and show that their task is released for reallocation.
-14. Generate multiple tasks from a project template.
-15. Show workload analytics and conflict detection.
+13. Use Team Members page to search employees globally and inspect project-specific members.
+14. Use Skills page to remove a global skill or remove a skill from a specialist.
+15. Delete a team member and show that their task is released for reallocation.
+16. Generate multiple tasks from a project template.
+17. Show workload analytics and conflict detection.
+18. Resolve a conflict directly from Analytics by manually assigning a competing task to another team member.
 
 ---
 
@@ -851,13 +897,17 @@ Implemented:
 - skill taxonomy;
 - role ontology;
 - skill assignment and skill removal;
+- global skill deletion from the UI;
+- employee global search and project-specific team member view;
 - profile scoring;
+- Average Allocation Score display in employee profiles;
 - automatic task allocation;
 - manual review fallback;
 - delayed task reassignment;
 - workload analysis;
 - conflict detection;
 - conflict suggestions;
+- manual conflict resolution from the Analytics page;
 - deadline reminders;
 - notification system;
 - manager notification visibility;
