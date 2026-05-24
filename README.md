@@ -18,6 +18,7 @@ The “intelligent” behavior of the system is implemented through:
 - skill taxonomy;
 - role ontology;
 - weighted heuristic scoring;
+- configurable scheduling policies;
 - workload constraints;
 - availability checks;
 - reliability evaluation;
@@ -45,6 +46,7 @@ The system allows a manager to:
 - create and delete tasks;
 - create tasks with deadlines, priorities, estimated effort, and required skills;
 - automatically find the most suitable team member for a task;
+- configure scheduling policy weights, thresholds, and workload constraints;
 - analyze workload distribution;
 - detect assignment conflicts;
 - resolve assignment conflicts directly from the Analytics page using manual assignment;
@@ -78,6 +80,7 @@ Main manager capabilities:
 - search employees globally and inspect project-specific team members;
 - create tasks and structured project tasks;
 - preview allocation results;
+- configure the active scheduling policy;
 - run automatic task allocation;
 - monitor task progress;
 - inspect full employee profiles;
@@ -143,6 +146,7 @@ Implemented DB-oriented functionalities include:
 - assignment records;
 - manual assignment records for conflict resolution;
 - notifications;
+- scheduling policy records;
 - task statuses;
 - project-based task and member retrieval;
 - employee login account linking.
@@ -158,6 +162,7 @@ Main database entities:
 - TaskRequiredSkill
 - Assignment
 - Notification
+- SchedulingPolicy
 
 These functionalities form the data foundation of the system.
 
@@ -311,7 +316,51 @@ The score is stored in the assignment record as `score_at_assignment`. Employee 
 
 ---
 
-### 3.5 Automatic Single Task Allocation
+### 3.5 Configurable Scheduling Policy
+
+The scheduling policy is configurable by the manager from the web interface.
+
+This means the allocation logic is not only a fixed hardcoded formula. The manager can change the active policy and adjust how strongly each criterion affects the final candidate ranking.
+
+The configurable policy includes:
+
+- skill match weight;
+- taxonomy match weight;
+- availability weight;
+- workload weight;
+- reliability weight;
+- dynamic status weight;
+- mood weight;
+- priority weight;
+- deadline urgency weight;
+- minimum acceptable score threshold;
+- maximum workload allowed.
+
+The system supports different allocation strategies, for example:
+
+- Balanced Policy;
+- Skill-Oriented Policy;
+- Workload-Balanced Policy;
+- Deadline-Oriented Policy.
+
+The active policy is stored in the database and used by both the automatic allocation engine and the delayed reassignment engine.
+
+Workflow:
+
+1. The manager opens the Scheduling Policy Settings page.
+2. The manager changes weights, threshold, or workload constraint.
+3. The system stores the updated active policy in the database.
+4. During task allocation, the scoring service reads the active policy.
+5. Candidate scores are calculated using the configured weights.
+6. Candidates below the configured threshold are rejected.
+7. Candidates above the maximum workload constraint are treated as unsuitable.
+8. The best suitable candidate is selected or the task is moved to manual review.
+
+This directly supports the requirement that the scheduling policy should be programmable and customizable by the administrator/manager.
+
+---
+
+### 3.6 Automatic Single Task Allocation
 
 The system can automatically assign a task to the most suitable team member.
 
@@ -332,7 +381,7 @@ If no candidate is suitable, the task is moved to manual review.
 
 ---
 
-### 3.6 Manual Review Fallback
+### 3.7 Manual Review Fallback
 
 If the system cannot find a suitable candidate, it does not assign the task randomly.
 
@@ -349,7 +398,7 @@ This is important because the system is designed as a decision-support assistant
 
 ---
 
-### 3.7 Delayed Task Reassignment
+### 3.8 Delayed Task Reassignment
 
 The system supports reassignment of delayed tasks.
 
@@ -370,7 +419,7 @@ If no replacement is suitable, the task is moved to manual review.
 
 ---
 
-### 3.8 Workload Analysis
+### 3.9 Workload Analysis
 
 The system analyzes workload distribution inside a project.
 
@@ -386,7 +435,7 @@ This supports better project coordination and fairer task distribution.
 
 ---
 
-### 3.9 Conflict Detection and Manual Conflict Resolution
+### 3.10 Conflict Detection and Manual Conflict Resolution
 
 The system can detect assignment conflicts.
 
@@ -409,7 +458,7 @@ This keeps the system explainable: the algorithm detects the risk, but the manag
 
 ---
 
-### 3.10 Template-Based Project Decomposition and Multi-Task Allocation
+### 3.11 Template-Based Project Decomposition and Multi-Task Allocation
 
 The system supports two task creation modes:
 
@@ -473,7 +522,7 @@ This is one of the strongest complex features of the project because it combines
 
 ---
 
-### 3.11 Controlled Delete Workflows
+### 3.12 Controlled Delete Workflows
 
 The manager can delete projects, team members, and tasks from the UI.
 
@@ -512,7 +561,7 @@ This adds complete CRUD behavior while still preserving allocation logic.
 
 ---
 
-### 3.12 Team Member Login Account Creation
+### 3.13 Team Member Login Account Creation
 
 Managers can create and link login accounts for existing team-member profiles.
 
@@ -543,6 +592,7 @@ Main UI pages:
 - `/skills-ui` — skill creation, global skill removal, skill assignment, and specialist skill removal;
 - `/tasks-ui` — task creation, progress monitoring, allocation actions, template generation;
 - `/analytics-ui` — workload analysis, conflict detection, manual conflict resolution, and redistribution suggestions;
+- `/scheduling-policy-ui` — manager page for configuring scheduling weights, thresholds, and workload constraints;
 - `/notifications-ui` — notifications page;
 - `/my-tasks` — team member personal task page.
 
@@ -559,7 +609,8 @@ The latest version includes several UI and workflow improvements:
 - the Skills page still supports removing a skill only from a selected specialist;
 - the Analytics page displays workload and conflict results as readable cards instead of raw JSON;
 - conflict detection includes manager actions, allowing a competing task to be manually assigned to another team member directly from the Analytics page;
-- analytics values such as workload, availability, and reliability are formatted consistently.
+- analytics values such as workload, availability, and reliability are formatted consistently;
+- a Scheduling Policy Settings page was added so the manager can configure scoring weights, thresholds, workload constraints, and active allocation strategy.
 
 These changes improve the demonstration flow and make the system easier to explain during the project defence.
 
@@ -638,6 +689,18 @@ GET /assignments/member/{team_member_id}
 POST /assignments/reassign-delayed/{task_id}
 ```
 
+### Scheduling Policies
+
+```http
+GET /scheduling-policies/
+GET /scheduling-policies/active
+POST /scheduling-policies/
+PUT /scheduling-policies/{policy_id}
+POST /scheduling-policies/{policy_id}/activate
+DELETE /scheduling-policies/{policy_id}
+POST /scheduling-policies/seed-defaults
+```
+
 ### Analytics
 
 ```http
@@ -679,6 +742,8 @@ DELETE /skills/{skill_id}
 POST /my-profile/status
 POST /my-tasks/{assignment_id}/status
 POST /notifications-ui/{notification_id}/read
+POST /scheduling-policy-ui/update/{policy_id}
+POST /scheduling-policy-ui/activate/{policy_id}
 ```
 
 ---
@@ -729,6 +794,7 @@ task-allocation-assistant/
 │   │   ├── notifications.py
 │   │   ├── analytics.py
 │   │   ├── project_templates.py
+│   │   ├── scheduling_policies.py
 │   │   └── users.py
 │   │
 │   ├── services/
@@ -755,6 +821,7 @@ task-allocation-assistant/
 │   │   ├── tasks.html
 │   │   ├── analytics.html
 │   │   ├── notifications.html
+│   │   ├── scheduling_policy.html
 │   │   └── my_tasks.html
 │   │
 │   └── static/
@@ -853,6 +920,8 @@ The project includes automated tests for:
 - project template service;
 - project template router logic.
 
+Current test result after the configurable scheduling policy update: **49 passed**.
+
 ---
 
 ## Demo Workflow
@@ -865,7 +934,8 @@ A possible demonstration scenario:
 4. Create skills and attach them to team members.
 5. Create a task with required skills.
 6. Preview candidate scoring.
-7. Run automatic allocation.
+7. Open Scheduling Policy Settings and show that the manager can configure weights and thresholds.
+8. Run automatic allocation.
 8. Open the assigned employee profile.
 9. Log in as the team member.
 10. Update mood/status.
@@ -900,6 +970,8 @@ Implemented:
 - global skill deletion from the UI;
 - employee global search and project-specific team member view;
 - profile scoring;
+- configurable scheduling policy with manager UI;
+- active policy usage in allocation and reassignment engines;
 - Average Allocation Score display in employee profiles;
 - automatic task allocation;
 - manual review fallback;
@@ -943,7 +1015,7 @@ Planned sections:
    - Complex functionalities
 7. Increment 1: CRUD and Data Management
 8. Increment 2: Authentication, UI, and Supporting Services
-9. Increment 3: Complex Allocation Logic
+9. Increment 3: Complex Allocation Logic and Configurable Scheduling Policy
 10. Increment 4: Monitoring, Notifications, and Reassignment
 11. Increment 5: Template-Based Project Decomposition and Multi-Task Allocation
 12. Increment 6: Final UI, Delete Workflows, and Account Linking
@@ -974,7 +1046,7 @@ This project is suitable for a Software Engineering course because it includes:
 - UML diagrams and documentation;
 - explainable rule-based decision-making.
 
-The most important complex part of the project is the task allocation workflow, which uses multi-criteria heuristic scoring, skill taxonomy, role ontology, workload balancing, deadline urgency, priority constraints, and reassignment logic.
+The most important complex part of the project is the task allocation workflow, which uses multi-criteria heuristic scoring, configurable scheduling policies, skill taxonomy, role ontology, workload balancing, deadline urgency, priority constraints, and reassignment logic.
 
 ---
 
