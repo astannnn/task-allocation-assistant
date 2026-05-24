@@ -14,9 +14,7 @@ from app.services.notification_service import (
 )
 
 from app.services.taxonomy import explain_taxonomy_match
-
-
-MINIMUM_ACCEPTABLE_REASSIGNMENT_SCORE = 0.5
+from app.services.scheduling_policy_service import get_active_policy
 
 
 def find_current_active_assignment(task_id: int, db: Session):
@@ -36,9 +34,6 @@ def decrease_previous_member_workload(
 ):
     """
     Decrease workload of the previous assignee when a delayed task is reassigned.
-
-    This makes the reassignment workflow more realistic because the previous
-    team member is no longer responsible for the task.
     """
     if not current_assignment:
         return None
@@ -52,7 +47,7 @@ def decrease_previous_member_workload(
 
     previous_member.workload = max(
         0.0,
-        previous_member.workload - task.estimated_effort
+        (previous_member.workload or 0.0) - (task.estimated_effort or 0.0)
     )
 
     return previous_member
@@ -75,7 +70,7 @@ def increase_new_member_workload(
 
     new_member.workload = min(
         1.0,
-        new_member.workload + task.estimated_effort
+        (new_member.workload or 0.0) + (task.estimated_effort or 0.0)
     )
 
     return new_member
@@ -84,15 +79,18 @@ def increase_new_member_workload(
 def build_reassignment_candidate_response(
     task: models.Task,
     member: models.TeamMember,
-    required_skill_details
+    required_skill_details,
+    db: Session
 ):
     """
     Build a detailed candidate response for reassignment.
 
-    This is similar to automatic allocation preview, but it is used
-    when the system searches for a replacement for a delayed task.
+    It uses the active SchedulingPolicy, so reassignment follows the same
+    configurable decision rules as automatic allocation.
     """
-    score_breakdown = calculate_profile_score_breakdown(task, member)
+    active_policy = get_active_policy(db)
+
+    score_breakdown = calculate_profile_score_breakdown(task, member, db)
     explanation = generate_profile_score_explanation(task, member, score_breakdown)
 
     task_required_skill_names = [
@@ -127,6 +125,13 @@ def build_reassignment_candidate_response(
         "required_skills": required_skill_details,
         "member_skills": member_skill_details,
         "taxonomy_explanation": taxonomy_explanation,
+        "policy_used": {
+            "policy_id": active_policy.id,
+            "policy_name": active_policy.name,
+            "policy_type": active_policy.policy_type,
+            "minimum_score_threshold": active_policy.minimum_score_threshold,
+            "max_workload_allowed": active_policy.max_workload_allowed,
+        }
     }
 
 
@@ -135,12 +140,15 @@ def find_replacement_for_delayed_task(task_id: int, db: Session):
     Find the best replacement for a delayed task.
 
     The current assignee is excluded from the candidate list.
-    Unavailable members are also excluded.
+    Unavailable members are excluded.
+    Members above max_workload_allowed from the active policy are excluded.
     """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
 
     if not task:
         return None, []
+
+    active_policy = get_active_policy(db)
 
     current_assignment = find_current_active_assignment(task_id, db)
 
@@ -162,10 +170,14 @@ def find_replacement_for_delayed_task(task_id: int, db: Session):
         if member.dynamic_status == "unavailable":
             continue
 
+        if member.workload is not None and member.workload > active_policy.max_workload_allowed:
+            continue
+
         candidate_response = build_reassignment_candidate_response(
             task=task,
             member=member,
             required_skill_details=required_skill_details,
+            db=db,
         )
 
         candidate_scores.append(candidate_response)
@@ -177,7 +189,7 @@ def find_replacement_for_delayed_task(task_id: int, db: Session):
 
     best_candidate = candidate_scores[0]
 
-    if best_candidate["score"] < MINIMUM_ACCEPTABLE_REASSIGNMENT_SCORE:
+    if best_candidate["score"] < active_policy.minimum_score_threshold:
         return None, candidate_scores
 
     return best_candidate, candidate_scores
@@ -192,7 +204,7 @@ def reassign_delayed_task(task_id: int, db: Session):
     2. Check if task is delayed.
     3. Find current active assignment.
     4. Exclude current assignee.
-    5. Evaluate alternative candidates.
+    5. Evaluate alternative candidates using active SchedulingPolicy.
     6. If no replacement is found, move task to manual_review.
     7. If replacement is found, close old assignment and create new assignment.
     8. Update workload of previous and new assignee.
@@ -226,6 +238,8 @@ def reassign_delayed_task(task_id: int, db: Session):
             reason="No active assignment found for this delayed task.",
         )
 
+        db.commit()
+
         return {
             "success": False,
             "message": "No active assignment found for this delayed task. Task moved to manual review.",
@@ -243,6 +257,8 @@ def reassign_delayed_task(task_id: int, db: Session):
             task=task,
             reason="No suitable replacement found during delayed task reassignment.",
         )
+
+        db.commit()
 
         return {
             "success": False,
@@ -287,6 +303,7 @@ def reassign_delayed_task(task_id: int, db: Session):
             previous_member=previous_member,
             new_member=new_member,
         )
+        db.commit()
 
     return {
         "success": True,

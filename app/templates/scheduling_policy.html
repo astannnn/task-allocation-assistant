@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Scheduling Policy Settings</h1>
+    <p>
+        Configure how the system selects the best candidate for automatic task allocation.
+        The manager can adjust scoring weights, thresholds and workload constraints.
+    </p>
+</div>
+
+<style>
+    .policy-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+        margin-bottom: 22px;
+    }
+
+    .policy-stat {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 18px;
+    }
+
+    .policy-stat span {
+        display: block;
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+
+    .policy-stat strong {
+        font-size: 22px;
+        color: #1f2937;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .form-group label {
+        font-weight: 700;
+        color: #374151;
+        font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select {
+        padding: 11px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font-size: 15px;
+        background: #ffffff;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .section-title {
+        margin-top: 28px;
+        margin-bottom: 8px;
+        color: #111827;
+        font-size: 20px;
+    }
+
+    .policy-actions {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .primary-button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .primary-button:hover {
+        background: #1d4ed8;
+    }
+
+    .small-button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .badge-active {
+        background: #dcfce7;
+        color: #166534;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .badge-inactive {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .policy-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+    }
+
+    .policy-table th,
+    .policy-table td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .policy-table th {
+        background: #f8fafc;
+        color: #374151;
+        font-weight: 800;
+    }
+
+    .policy-table tr:hover {
+        background: #f9fafb;
+    }
+
+    .explanation-box {
+        background: #eff6ff;
+        border-left: 5px solid #2563eb;
+        padding: 18px;
+        border-radius: 12px;
+        color: #1e3a8a;
+        line-height: 1.6;
+    }
+</style>
+
+<div class="card">
+    <h2>Active Policy</h2>
+
+    {% if active_policy %}
+    <div class="policy-grid">
+        <div class="policy-stat">
+            <span>Policy Name</span>
+            <strong>{{ active_policy.name }}</strong>
+        </div>
+
+        <div class="policy-stat">
+            <span>Policy Type</span>
+            <strong>{{ active_policy.policy_type.replace("_", " ").title() }}</strong>
+        </div>
+
+        <div class="policy-stat">
+            <span>Minimum Score Threshold</span>
+            <strong>{{ "%.2f"|format(active_policy.minimum_score_threshold) }}</strong>
+        </div>
+
+        <div class="policy-stat">
+            <span>Max Workload Allowed</span>
+            <strong>{{ "%.2f"|format(active_policy.max_workload_allowed) }}</strong>
+        </div>
+    </div>
+    {% else %}
+        <p>No active policy found.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Update Active Policy</h2>
+    <p>
+        These values are used by the automatic allocation engine when it calculates candidate scores.
+        Higher weight means stronger influence on the final decision.
+    </p>
+
+    {% if active_policy %}
+    <form method="post" action="/scheduling-policy-ui/update/{{ active_policy.id }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ active_policy.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Policy Type</label>
+                <select name="policy_type">
+                    <option value="balanced" {% if active_policy.policy_type == "balanced" %}selected{% endif %}>Balanced</option>
+                    <option value="skill_oriented" {% if active_policy.policy_type == "skill_oriented" %}selected{% endif %}>Skill Oriented</option>
+                    <option value="workload_balanced" {% if active_policy.policy_type == "workload_balanced" %}selected{% endif %}>Workload Balanced</option>
+                    <option value="deadline_oriented" {% if active_policy.policy_type == "deadline_oriented" %}selected{% endif %}>Deadline Oriented</option>
+                </select>
+            </div>
+        </div>
+
+        <h3 class="section-title">Scoring Weights</h3>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Skill Weight</label>
+                <input type="number" step="0.01" min="0" name="skill_weight" value="{{ active_policy.skill_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Taxonomy Weight</label>
+                <input type="number" step="0.01" min="0" name="taxonomy_weight" value="{{ active_policy.taxonomy_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Availability Weight</label>
+                <input type="number" step="0.01" min="0" name="availability_weight" value="{{ active_policy.availability_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Workload Weight</label>
+                <input type="number" step="0.01" min="0" name="workload_weight" value="{{ active_policy.workload_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Reliability Weight</label>
+                <input type="number" step="0.01" min="0" name="reliability_weight" value="{{ active_policy.reliability_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Dynamic Status Weight</label>
+                <input type="number" step="0.01" min="0" name="dynamic_status_weight" value="{{ active_policy.dynamic_status_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Mood Weight</label>
+                <input type="number" step="0.01" min="0" name="mood_weight" value="{{ active_policy.mood_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Priority Weight</label>
+                <input type="number" step="0.01" min="0" name="priority_weight" value="{{ active_policy.priority_weight }}">
+            </div>
+
+            <div class="form-group">
+                <label>Deadline Weight</label>
+                <input type="number" step="0.01" min="0" name="deadline_weight" value="{{ active_policy.deadline_weight }}">
+            </div>
+        </div>
+
+        <h3 class="section-title">Constraints</h3>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Minimum Score Threshold</label>
+                <input type="number" step="0.01" min="0" max="1" name="minimum_score_threshold" value="{{ active_policy.minimum_score_threshold }}">
+            </div>
+
+            <div class="form-group">
+                <label>Max Workload Allowed</label>
+                <input type="number" step="0.01" min="0" max="1" name="max_workload_allowed" value="{{ active_policy.max_workload_allowed }}">
+            </div>
+        </div>
+
+        <div class="policy-actions">
+            <button class="primary-button" type="submit">Save Policy</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>All Policies</h2>
+
+    {% if policies %}
+    <table class="policy-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Active</th>
+                <th>Threshold</th>
+                <th>Max Workload</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for policy in policies %}
+            <tr>
+                <td><strong>{{ policy.name }}</strong></td>
+                <td>{{ policy.policy_type.replace("_", " ").title() }}</td>
+                <td>
+                    {% if policy.is_active == 1 %}
+                        <span class="badge-active">Active</span>
+                    {% else %}
+                        <span class="badge-inactive">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>{{ "%.2f"|format(policy.minimum_score_threshold) }}</td>
+                <td>{{ "%.2f"|format(policy.max_workload_allowed) }}</td>
+                <td>
+                    {% if policy.is_active != 1 %}
+                    <form method="post" action="/scheduling-policy-ui/activate/{{ policy.id }}">
+                        <button class="small-button" type="submit">Activate</button>
+                    </form>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>No policies found.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Explanation</h2>
+    <div class="explanation-box">
+        <p>
+            The automatic allocation algorithm uses the active policy to calculate candidate scores.
+            Changing these values changes how the system ranks team members.
+        </p>
+        <p>
+            Increasing <strong>Skill Weight</strong> makes the system prefer stronger technical matches.
+            Increasing <strong>Workload Weight</strong> makes the system prefer less loaded members.
+            Increasing <strong>Deadline Weight</strong> gives more importance to urgent tasks.
+        </p>
+    </div>
+</div>
+{% endblock %}

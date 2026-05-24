@@ -14,9 +14,8 @@ from app.services.notification_service import (
 )
 
 from app.services.taxonomy import explain_taxonomy_match
+from app.services.scheduling_policy_service import get_active_policy
 
-
-MINIMUM_ACCEPTABLE_SCORE = 0.5
 
 def close_existing_active_assignments(task_id: int, db: Session):
     """
@@ -42,16 +41,17 @@ def find_best_team_member_for_task(task_id: int, db: Session):
     if not task:
         return None, []
 
+    active_policy = get_active_policy(db)
+
     team_members = db.query(models.TeamMember).filter(
         models.TeamMember.project_id == task.project_id
     ).all()
 
     candidate_scores = []
-
     required_skill_details = get_required_skill_details(task)
 
     for member in team_members:
-        score_breakdown = calculate_profile_score_breakdown(task, member)
+        score_breakdown = calculate_profile_score_breakdown(task, member, db)
         explanation = generate_profile_score_explanation(task, member, score_breakdown)
 
         task_required_skill_names = [
@@ -86,6 +86,13 @@ def find_best_team_member_for_task(task_id: int, db: Session):
             "required_skills": required_skill_details,
             "member_skills": member_skill_details,
             "taxonomy_explanation": taxonomy_explanation,
+            "policy_used": {
+                "policy_id": active_policy.id,
+                "policy_name": active_policy.name,
+                "policy_type": active_policy.policy_type,
+                "minimum_score_threshold": active_policy.minimum_score_threshold,
+                "max_workload_allowed": active_policy.max_workload_allowed,
+            }
         })
 
     candidate_scores.sort(key=lambda candidate: candidate["score"], reverse=True)
@@ -95,7 +102,7 @@ def find_best_team_member_for_task(task_id: int, db: Session):
 
     best_candidate = candidate_scores[0]
 
-    if best_candidate["score"] < MINIMUM_ACCEPTABLE_SCORE:
+    if best_candidate["score"] < active_policy.minimum_score_threshold:
         return None, candidate_scores
 
     return best_candidate, candidate_scores
@@ -123,13 +130,15 @@ def automatically_allocate_task(task_id: int, db: Session):
             reason="No suitable team member found during automatic allocation.",
         )
 
+        db.commit()
+
         return {
             "success": False,
             "message": "No suitable team member found. Task moved to manual review.",
             "assignment": None,
             "candidate_scores": candidate_scores
         }
-    
+
     closed_assignments = close_existing_active_assignments(
         task_id=task.id,
         db=db,
@@ -151,7 +160,7 @@ def automatically_allocate_task(task_id: int, db: Session):
     if assigned_member:
         assigned_member.workload = min(
             1.0,
-            assigned_member.workload + task.estimated_effort
+            (assigned_member.workload or 0.0) + (task.estimated_effort or 0.0)
         )
 
     db.add(assignment)
@@ -164,6 +173,7 @@ def automatically_allocate_task(task_id: int, db: Session):
             task=task,
             team_member=assigned_member,
         )
+        db.commit()
 
     return {
         "success": True,

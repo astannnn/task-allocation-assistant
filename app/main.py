@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 from app.services.scheduler_service import start_scheduler, shutdown_scheduler
+from app.services.scheduling_policy_service import (
+    get_active_policy,
+    activate_policy,
+    normalize_policy_weights,
+)
 from app import models
 from app.auth import hash_password, verify_password
 from app.routers import (
@@ -19,7 +24,8 @@ from app.routers import (
     analytics,
     notifications,
     project_templates,
-    users
+    users, 
+    scheduling_policies
 )
 
 
@@ -54,6 +60,7 @@ app.include_router(team_members.router)
 app.include_router(notifications.router)
 app.include_router(project_templates.router)
 app.include_router(users.router)
+app.include_router(scheduling_policies.router)
 
 
 # ---------- Auth Helpers ----------
@@ -888,6 +895,101 @@ def analytics_ui(
         }
     )
 
+@app.get("/scheduling-policy-ui")
+def scheduling_policy_ui(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    active_policy = get_active_policy(db)
+    policies = db.query(models.SchedulingPolicy).all()
+
+    return templates.TemplateResponse(
+        "scheduling_policy.html",
+        {
+            "request": request,
+            "title": "Scheduling Policy",
+            "current_user": current_user,
+            "active_policy": active_policy,
+            "policies": policies,
+        }
+    )
+
+
+@app.post("/scheduling-policy-ui/update/{policy_id}")
+def update_scheduling_policy_ui(
+    policy_id: int,
+    request: Request,
+    name: str = Form(...),
+    policy_type: str = Form(...),
+    skill_weight: float = Form(...),
+    taxonomy_weight: float = Form(...),
+    availability_weight: float = Form(...),
+    workload_weight: float = Form(...),
+    reliability_weight: float = Form(...),
+    dynamic_status_weight: float = Form(...),
+    mood_weight: float = Form(...),
+    priority_weight: float = Form(...),
+    deadline_weight: float = Form(...),
+    minimum_score_threshold: float = Form(...),
+    max_workload_allowed: float = Form(...),
+    db: Session = Depends(get_db),
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    policy = db.query(models.SchedulingPolicy).filter(
+        models.SchedulingPolicy.id == policy_id
+    ).first()
+
+    if policy:
+        policy.name = name
+        policy.policy_type = policy_type
+        policy.skill_weight = skill_weight
+        policy.taxonomy_weight = taxonomy_weight
+        policy.availability_weight = availability_weight
+        policy.workload_weight = workload_weight
+        policy.reliability_weight = reliability_weight
+        policy.dynamic_status_weight = dynamic_status_weight
+        policy.mood_weight = mood_weight
+        policy.priority_weight = priority_weight
+        policy.deadline_weight = deadline_weight
+        policy.minimum_score_threshold = minimum_score_threshold
+        policy.max_workload_allowed = max_workload_allowed
+
+        normalize_policy_weights(policy)
+
+        db.commit()
+
+    return RedirectResponse(
+        url="/scheduling-policy-ui",
+        status_code=303
+    )
+
+
+@app.post("/scheduling-policy-ui/activate/{policy_id}")
+def activate_scheduling_policy_ui(
+    policy_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    current_user, redirect_response = require_manager(request, db)
+
+    if redirect_response:
+        return redirect_response
+
+    activate_policy(policy_id, db)
+
+    return RedirectResponse(
+        url="/scheduling-policy-ui",
+        status_code=303
+    )
 
 # ---------- Protected Swagger Routes ----------
 

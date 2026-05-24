@@ -146,3 +146,27 @@ class Notification(Base):
     is_read = Column(Integer, default=0)
 
     user = relationship("User", back_populates="notifications")
+
+class SchedulingPolicy(Base):
+    __tablename__ = "scheduling_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    name = Column(String, nullable=False, default="Balanced Policy")
+    policy_type = Column(String, default="balanced")
+    is_active = Column(Integer, default=0)
+
+    skill_weight = Column(Float, default=0.30)
+    taxonomy_weight = Column(Float, default=0.10)
+    availability_weight = Column(Float, default=0.15)
+    workload_weight = Column(Float, default=0.15)
+    reliability_weight = Column(Float, default=0.10)
+    dynamic_status_weight = Column(Float, default=0.07)
+    mood_weight = Column(Float, default=0.03)
+    priority_weight = Column(Float, default=0.05)
+    deadline_weight = Column(Float, default=0.05)
+
+    minimum_score_threshold = Column(Float, default=0.50)
+    max_workload_allowed = Column(Float, default=0.90)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

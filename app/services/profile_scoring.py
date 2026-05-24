@@ -1,11 +1,14 @@
 from typing import Dict, Any, List
 from datetime import datetime
 
+from sqlalchemy.orm import Session
+
 from app import models
 from app.services.taxonomy import (
     calculate_task_category_match,
     explain_taxonomy_match,
 )
+from app.services.scheduling_policy_service import get_active_policy
 
 
 def _safe_float(value, default: float = 0.0) -> float:
@@ -26,9 +29,6 @@ def _safe_float(value, default: float = 0.0) -> float:
 def _get_skill_name(skill_relation) -> str:
     """
     Safely extract skill name from a relationship object.
-
-    This function is defensive because different SQLAlchemy models may name
-    the skill attribute as skill_name or name.
     """
     skill = getattr(skill_relation, "skill", None)
 
@@ -121,15 +121,13 @@ def calculate_mood_score(team_member: models.TeamMember) -> float:
 
     return mood_scores.get(mood_state.lower(), 0.6)
 
+
 def calculate_taxonomy_match_score(
     task: models.Task,
     team_member: models.TeamMember
 ) -> float:
     """
     Calculate role-task compatibility based on predefined taxonomy/ontology.
-
-    This checks whether the member's role is compatible with the categories
-    of skills required by the task.
     """
     required_skill_names = [
         _get_skill_name(required_skill)
@@ -143,12 +141,10 @@ def calculate_taxonomy_match_score(
         member_role=member_role,
     )
 
+
 def calculate_priority_score(task: models.Task) -> float:
     """
     Convert task priority into a numeric score.
-
-    Higher priority tasks receive higher scores.
-    This supports constraint-aware allocation.
     """
     priority_scores = {
         "low": 0.4,
@@ -168,10 +164,6 @@ def calculate_priority_score(task: models.Task) -> float:
 def calculate_deadline_urgency_score(task: models.Task) -> float:
     """
     Calculate urgency based on the task deadline.
-
-    The closer the deadline, the higher the urgency score.
-    If the deadline is already passed, the score is also high because
-    the task needs attention.
     """
     deadline = getattr(task, "deadline", None)
 
@@ -193,16 +185,78 @@ def calculate_deadline_urgency_score(task: models.Task) -> float:
 
     return 0.4
 
+
+def _get_default_policy_data() -> Dict[str, Any]:
+    """
+    Default policy used when db session is not provided.
+    This keeps old tests and old service calls working.
+    """
+    return {
+        "policy_id": None,
+        "policy_name": "Default Balanced Policy",
+        "policy_type": "balanced",
+        "minimum_score_threshold": 0.50,
+        "max_workload_allowed": 0.90,
+        "weights": {
+            "skill_match": 0.30,
+            "taxonomy_match": 0.10,
+            "availability": 0.15,
+            "workload_score": 0.15,
+            "reliability": 0.10,
+            "dynamic_status_score": 0.07,
+            "mood_score": 0.03,
+            "priority_score": 0.05,
+            "deadline_urgency_score": 0.05,
+        },
+    }
+
+
+def _get_policy_data(db: Session = None) -> Dict[str, Any]:
+    """
+    Get active scheduling policy data.
+
+    If db is provided, weights and thresholds come from the active
+    SchedulingPolicy in the database. If db is not provided, the system
+    uses the default balanced policy for backward compatibility.
+    """
+    if db is None:
+        return _get_default_policy_data()
+
+    policy = get_active_policy(db)
+
+    return {
+        "policy_id": policy.id,
+        "policy_name": policy.name,
+        "policy_type": policy.policy_type,
+        "minimum_score_threshold": policy.minimum_score_threshold,
+        "max_workload_allowed": policy.max_workload_allowed,
+        "weights": {
+            "skill_match": policy.skill_weight,
+            "taxonomy_match": policy.taxonomy_weight,
+            "availability": policy.availability_weight,
+            "workload_score": policy.workload_weight,
+            "reliability": policy.reliability_weight,
+            "dynamic_status_score": policy.dynamic_status_weight,
+            "mood_score": policy.mood_weight,
+            "priority_score": policy.priority_weight,
+            "deadline_urgency_score": policy.deadline_weight,
+        },
+    }
+
+
 def calculate_profile_score_breakdown(
     task: models.Task,
-    team_member: models.TeamMember
+    team_member: models.TeamMember,
+    db: Session = None
 ) -> Dict[str, Any]:
     """
     Calculate detailed scoring components for a team member.
 
-    This function makes the allocation algorithm explainable.
-    Instead of returning only one final number, it returns all criteria
-    used in the decision-making process.
+    The score is now policy-based:
+    - if db is provided, the active SchedulingPolicy is used;
+    - if db is not provided, default balanced weights are used.
+
+    This makes the allocation algorithm configurable by the admin/manager.
     """
     skill_match = calculate_skill_match_score(task, team_member)
     taxonomy_match = calculate_taxonomy_match_score(task, team_member)
@@ -214,16 +268,19 @@ def calculate_profile_score_breakdown(
     priority_score = calculate_priority_score(task)
     deadline_urgency_score = calculate_deadline_urgency_score(task)
 
+    policy_data = _get_policy_data(db)
+    weights = policy_data["weights"]
+
     weighted_score = (
-        skill_match * 0.30 +
-        taxonomy_match * 0.10 +
-        availability * 0.15 +
-        workload_score * 0.15 +
-        reliability * 0.10 +
-        dynamic_status_score * 0.07 +
-        mood_score * 0.03 +
-        priority_score * 0.05 +
-        deadline_urgency_score * 0.05
+        skill_match * weights["skill_match"] +
+        taxonomy_match * weights["taxonomy_match"] +
+        availability * weights["availability"] +
+        workload_score * weights["workload_score"] +
+        reliability * weights["reliability"] +
+        dynamic_status_score * weights["dynamic_status_score"] +
+        mood_score * weights["mood_score"] +
+        priority_score * weights["priority_score"] +
+        deadline_urgency_score * weights["deadline_urgency_score"]
     )
 
     return {
@@ -236,16 +293,13 @@ def calculate_profile_score_breakdown(
         "mood_score": round(mood_score, 4),
         "priority_score": round(priority_score, 4),
         "deadline_urgency_score": round(deadline_urgency_score, 4),
-        "weights": {
-            "skill_match": 0.30,
-            "taxonomy_match": 0.10,
-            "availability": 0.15,
-            "workload_score": 0.15,
-            "reliability": 0.10,
-            "dynamic_status_score": 0.07,
-            "mood_score": 0.03,
-            "priority_score": 0.05,
-            "deadline_urgency_score": 0.05,
+        "weights": weights,
+        "policy": {
+            "policy_id": policy_data["policy_id"],
+            "policy_name": policy_data["policy_name"],
+            "policy_type": policy_data["policy_type"],
+            "minimum_score_threshold": policy_data["minimum_score_threshold"],
+            "max_workload_allowed": policy_data["max_workload_allowed"],
         },
         "final_score": round(weighted_score, 4),
     }
@@ -258,10 +312,6 @@ def generate_profile_score_explanation(
 ) -> str:
     """
     Generate a human-readable explanation of the score.
-
-    The explanation separates positive factors from risk factors.
-    This makes the decision-support logic clearer and more suitable
-    for the Software Engineering report.
     """
     positive_factors: List[str] = []
     risk_factors: List[str] = []
@@ -327,22 +377,29 @@ def generate_profile_score_explanation(
     positive_text = ", ".join(positive_factors) if positive_factors else "no strong positive factors"
     risk_text = ", ".join(risk_factors) if risk_factors else "no major risk factors"
 
+    policy = breakdown.get("policy", {})
+    policy_name = policy.get("policy_name", "Default Balanced Policy")
+
     return (
         f"{member_name} received a final score of {breakdown['final_score']} "
-        f"for task '{task_title}'. "
+        f"for task '{task_title}' using policy '{policy_name}'. "
         f"Positive factors: {positive_text}. "
         f"Risk factors: {risk_text}."
     )
 
 
-def calculate_final_profile_score(task: models.Task, team_member: models.TeamMember) -> float:
+def calculate_final_profile_score(
+    task: models.Task,
+    team_member: models.TeamMember,
+    db: Session = None
+) -> float:
     """
     Backward-compatible function.
 
-    Other services can still call calculate_final_profile_score(),
-    but internally the score now comes from the detailed breakdown.
+    If db is provided, the score uses the active SchedulingPolicy.
+    Otherwise, it uses default balanced weights.
     """
-    breakdown = calculate_profile_score_breakdown(task, team_member)
+    breakdown = calculate_profile_score_breakdown(task, team_member, db)
     return breakdown["final_score"]
 
 
