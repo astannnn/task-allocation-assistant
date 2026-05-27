@@ -85,7 +85,7 @@
     .progress-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 760px;
+        min-width: 900px;
     }
 
     .progress-table th {
@@ -102,10 +102,6 @@
         border-bottom: 1px solid #f1f5f9;
         color: #111827;
         vertical-align: middle;
-    }
-
-    .progress-table tr:last-child td {
-        border-bottom: none;
     }
 
     .task-title-cell {
@@ -172,6 +168,195 @@
         background: #fef2f2;
         color: #b91c1c;
     }
+
+    .manual-assign-inline {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .manual-assign-inline select {
+        min-width: 180px;
+        padding: 8px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: white;
+        color: #111827;
+        font-size: 13px;
+    }
+
+    .manual-assign-inline button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 10px;
+        background: #2563eb;
+        color: white;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .manual-assign-inline button:hover {
+        background: #1d4ed8;
+    }
+
+    .manual-assign-note {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 6px;
+    }
+
+    .allocation-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 22px;
+        margin-top: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .allocation-card.danger {
+        border-color: #fecaca;
+        background: #fffafa;
+    }
+
+    .allocation-card.success {
+        border-color: #bbf7d0;
+        background: #f8fffb;
+    }
+
+    .allocation-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+
+    .allocation-header h3 {
+        margin: 0 0 6px 0;
+        color: #111827;
+    }
+
+    .allocation-header p {
+        margin: 0;
+        color: #475569;
+    }
+
+    .allocation-badge {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .allocation-badge.danger {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    .allocation-badge.success {
+        background: #ecfdf5;
+        color: #047857;
+    }
+
+    .allocation-score {
+        font-size: 32px;
+        font-weight: 800;
+        color: #2563eb;
+        line-height: 1;
+        text-align: right;
+        margin-bottom: 8px;
+    }
+
+    .allocation-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+    }
+
+    .allocation-meta-item {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 12px;
+    }
+
+    .allocation-meta-item span {
+        display: block;
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .allocation-meta-item strong {
+        color: #111827;
+    }
+
+    .allocation-reason {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 14px;
+        margin-top: 14px;
+        color: #111827;
+    }
+
+    .risk-list {
+        margin: 12px 0 0 0;
+        padding-left: 20px;
+    }
+
+    .risk-list li {
+        margin-bottom: 6px;
+    }
+
+    .score-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .score-item {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    .score-item span {
+        display: block;
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 3px;
+    }
+
+    .score-item strong {
+        color: #111827;
+    }
+
+    .details-toggle {
+        margin-top: 14px;
+    }
+
+    .details-toggle summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: #2563eb;
+    }
+
+    .small-json {
+        max-height: 260px;
+        overflow: auto;
+        font-size: 13px;
+        margin-top: 12px;
+    }
 </style>
 
 <section class="section">
@@ -215,9 +400,7 @@
             </div>
 
             <div id="required-skills-dropdown" class="custom-multiselect-menu">
-                <div id="required-skills-list">
-                    Loading skills...
-                </div>
+                <div id="required-skills-list">Loading skills...</div>
             </div>
         </div>
 
@@ -311,14 +494,12 @@
                     </label>
 
                     <label>
-                        <input type="checkbox" class="template-component" value="frontend_pages"
-                            data-complexity="medium">
+                        <input type="checkbox" class="template-component" value="frontend_pages" data-complexity="medium">
                         Frontend Pages - medium
                     </label>
 
                     <label>
-                        <input type="checkbox" class="template-component" value="database_design"
-                            data-complexity="medium">
+                        <input type="checkbox" class="template-component" value="database_design" data-complexity="medium">
                         Database Design - medium
                     </label>
 
@@ -354,6 +535,8 @@
 </section>
 
 <script>
+    let taskPageProjectMembers = [];
+
     function escapeHtml(value) {
         if (value === null || value === undefined) {
             return "";
@@ -365,6 +548,236 @@
             .replaceAll(">", "&gt;")
             .replaceAll('"', "&quot;")
             .replaceAll("'", "&#039;");
+    }
+
+    function formatNumber(value) {
+        if (value === null || value === undefined || value === "N/A" || isNaN(Number(value))) {
+            return "N/A";
+        }
+
+        return Number(value).toFixed(3);
+    }
+
+    function getCandidateScore(candidate) {
+        return candidate?.score ?? candidate?.final_score ?? candidate?.score_breakdown?.final_score ?? "N/A";
+    }
+
+    function getThresholdFromCandidate(candidate) {
+        return candidate?.score_breakdown?.policy?.minimum_score_threshold ?? "N/A";
+    }
+
+    function getBestCandidateFromScores(candidateScores) {
+        if (!candidateScores || candidateScores.length === 0) {
+            return null;
+        }
+
+        return [...candidateScores].sort(
+            (a, b) => Number(getCandidateScore(b)) - Number(getCandidateScore(a))
+        )[0];
+    }
+
+    function renderScoreGrid(scoreBreakdown) {
+        if (!scoreBreakdown) {
+            return "";
+        }
+
+        const items = [
+            ["Skill Match", scoreBreakdown.skill_match],
+            ["Taxonomy Match", scoreBreakdown.taxonomy_match],
+            ["Availability", scoreBreakdown.availability],
+            ["Workload", scoreBreakdown.workload_score],
+            ["Reliability", scoreBreakdown.reliability],
+            ["Dynamic Status", scoreBreakdown.dynamic_status_score],
+            ["Mood", scoreBreakdown.mood_score],
+            ["Priority", scoreBreakdown.priority_score],
+            ["Deadline Urgency", scoreBreakdown.deadline_urgency_score]
+        ];
+
+        return `
+            <div class="score-grid">
+                ${items.map(([label, value]) => `
+                    <div class="score-item">
+                        <span>${escapeHtml(label)}</span>
+                        <strong>${escapeHtml(formatNumber(value))}</strong>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    function renderCandidateCard(candidate, isBest = false) {
+        const threshold = getThresholdFromCandidate(candidate);
+        const score = getCandidateScore(candidate);
+        const scoreBreakdown = candidate?.score_breakdown || {};
+        const passedThreshold = threshold !== "N/A" && Number(score) >= Number(threshold);
+        const risks = [];
+
+        if (scoreBreakdown.skill_match === 0) {
+            risks.push("Required skill match is weak or missing.");
+        }
+
+        if (threshold !== "N/A" && Number(score) < Number(threshold)) {
+            risks.push(`Score is below threshold: ${formatNumber(score)} < ${formatNumber(threshold)}.`);
+        }
+
+        if (scoreBreakdown.dynamic_status_score !== undefined && scoreBreakdown.dynamic_status_score <= 0.5) {
+            risks.push("Dynamic status may reduce suitability.");
+        }
+
+        if (scoreBreakdown.workload_score !== undefined && scoreBreakdown.workload_score <= 0.4) {
+            risks.push("Candidate may be overloaded.");
+        }
+
+        return `
+            <div class="allocation-card ${isBest && passedThreshold ? "success" : ""}">
+                <div class="allocation-header">
+                    <div>
+                        <h3>${isBest ? "Best Candidate" : "Best Available Candidate"}</h3>
+                        <p>${escapeHtml(candidate?.team_member_name || "Unknown member")} — ${escapeHtml(candidate?.role || "No role")}</p>
+                    </div>
+
+                    <div>
+                        <div class="allocation-score">${escapeHtml(formatNumber(score))}</div>
+                        <span class="allocation-badge ${passedThreshold ? "success" : "danger"}">
+                            Threshold: ${escapeHtml(formatNumber(threshold))}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="allocation-meta">
+                    <div class="allocation-meta-item">
+                        <span>Member</span>
+                        <strong>${escapeHtml(candidate?.team_member_name || "Unknown")}</strong>
+                    </div>
+
+                    <div class="allocation-meta-item">
+                        <span>Role</span>
+                        <strong>${escapeHtml(candidate?.role || "N/A")}</strong>
+                    </div>
+
+                    <div class="allocation-meta-item">
+                        <span>Final Score</span>
+                        <strong>${escapeHtml(formatNumber(score))}</strong>
+                    </div>
+
+                    <div class="allocation-meta-item">
+                        <span>Threshold</span>
+                        <strong>${escapeHtml(formatNumber(threshold))}</strong>
+                    </div>
+                </div>
+
+                ${risks.length > 0 ? `
+                    <p><strong>Risk factors:</strong></p>
+                    <ul class="risk-list">
+                        ${risks.map(risk => `<li>${escapeHtml(risk)}</li>`).join("")}
+                    </ul>
+                ` : `
+                    <p><strong>No major risk factors detected.</strong></p>
+                `}
+
+                ${renderScoreGrid(scoreBreakdown)}
+
+                <details class="details-toggle">
+                    <summary>Show technical details</summary>
+                    <pre class="small-json">${escapeHtml(JSON.stringify(candidate, null, 2))}</pre>
+                </details>
+            </div>
+        `;
+    }
+
+    function renderNoSuitableCandidate(result) {
+        const bestCandidate = getBestCandidateFromScores(result.candidate_scores);
+
+        return `
+            <div class="allocation-card danger">
+                <div class="allocation-header">
+                    <div>
+                        <h3>No suitable candidate found</h3>
+                        <p>The system calculated candidate scores, but no candidate passed the allocation threshold.</p>
+                    </div>
+
+                    <span class="allocation-badge danger">Manual Review Required</span>
+                </div>
+
+                ${bestCandidate ? `
+                    <div class="allocation-meta">
+                        <div class="allocation-meta-item">
+                            <span>Best available candidate</span>
+                            <strong>${escapeHtml(bestCandidate.team_member_name || "Unknown")}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Best score</span>
+                            <strong>${escapeHtml(formatNumber(getCandidateScore(bestCandidate)))}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Required threshold</span>
+                            <strong>${escapeHtml(formatNumber(getThresholdFromCandidate(bestCandidate)))}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Suggested result</span>
+                            <strong>manual_review</strong>
+                        </div>
+                    </div>
+
+                    <div class="allocation-reason">
+                        <strong>Reason:</strong> The best candidate score is below the minimum acceptable threshold, so the system avoids risky automatic assignment.
+                    </div>
+
+                    ${renderCandidateCard(bestCandidate, false)}
+                ` : `
+                    <div class="allocation-reason">
+                        No candidates were available for this task.
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    function renderBestCandidateResult(result) {
+        return `
+            <div class="allocation-card success">
+                <div class="allocation-header">
+                    <div>
+                        <h3>Suitable candidate found</h3>
+                        <p>Task: <strong>${escapeHtml(result.task_title || "Unknown task")}</strong></p>
+                    </div>
+
+                    <span class="allocation-badge success">Passed Threshold</span>
+                </div>
+
+                ${renderCandidateCard(result.best_candidate, true)}
+
+                <div class="allocation-reason">
+                    <strong>Explanation:</strong> ${escapeHtml(result.best_candidate.explanation || "No explanation provided.")}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderAutoAllocationFailure(result) {
+        if (result && result.candidate_scores) {
+            return renderNoSuitableCandidate(result);
+        }
+
+        return `
+            <div class="allocation-card danger">
+                <div class="allocation-header">
+                    <div>
+                        <h3>Allocation failed</h3>
+                        <p>The system could not complete automatic allocation.</p>
+                    </div>
+                    <span class="allocation-badge danger">Failed</span>
+                </div>
+
+                <details class="details-toggle" open>
+                    <summary>Show technical details</summary>
+                    <pre class="small-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
+                </details>
+            </div>
+        `;
     }
 
     async function loadProjectsForTasks() {
@@ -464,6 +877,7 @@
 
             const membersResponse = await fetch(`/team-members/project/${projectId}`);
             const members = await membersResponse.json();
+            taskPageProjectMembers = members || [];
 
             const skillsResponse = await fetch("/skills/");
             const skills = await skillsResponse.json();
@@ -543,6 +957,7 @@
                 progressStats[progressCategory] += 1;
 
                 progressRows.push({
+                    taskId: task.id,
                     title: task.title,
                     assignedMember: assignmentText,
                     taskStatus: task.status,
@@ -635,10 +1050,10 @@
                                 <th>Task Status</th>
                                 <th>Assignment Status</th>
                                 <th>Priority</th>
+                                <th>Manual Assignment</th>
                             </tr>
                         </thead>
-                        <tbody id="progress-table-body">
-                        </tbody>
+                        <tbody id="progress-table-body"></tbody>
                     </table>
                 </div>
             `;
@@ -653,14 +1068,12 @@
     function formatStatus(status) {
         const safeStatus = status || "none";
         const statusClass = `status-${safeStatus}`;
-
         return `<span class="status-pill ${statusClass}">${escapeHtml(safeStatus)}</span>`;
     }
 
     function formatPriority(priority) {
         const safePriority = priority || "medium";
         const priorityClass = `priority-${safePriority}`;
-
         return `<span class="priority-pill ${priorityClass}">${escapeHtml(safePriority)}</span>`;
     }
 
@@ -697,7 +1110,7 @@
         if (filteredRows.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="5">No tasks in this category.</td>
+                    <td colspan="6">No tasks in this category.</td>
                 </tr>
             `;
             return;
@@ -710,8 +1123,123 @@
                 <td>${formatStatus(row.taskStatus)}</td>
                 <td>${formatStatus(row.assignmentStatus)}</td>
                 <td>${formatPriority(row.priority)}</td>
+                <td>${renderManualReviewAssignment(row)}</td>
             </tr>
         `).join("");
+    }
+
+    function renderTaskPageMemberOptions() {
+        if (!taskPageProjectMembers || taskPageProjectMembers.length === 0) {
+            return '<option value="">No members available</option>';
+        }
+
+        let options = '<option value="">Select member</option>';
+
+        taskPageProjectMembers.forEach(member => {
+            options += `
+                <option value="${member.id}">
+                    ${member.id} - ${escapeHtml(member.name)} (${escapeHtml(member.role)})
+                </option>
+            `;
+        });
+
+        return options;
+    }
+
+    function renderManualReviewAssignment(row) {
+        if (row.taskStatus !== "manual_review") {
+            return "<span class='muted-text'>Not required</span>";
+        }
+
+        return `
+            <div class="manual-assign-inline">
+                <select id="task-manual-member-${row.taskId}">
+                    ${renderTaskPageMemberOptions()}
+                </select>
+
+                <button type="button" onclick="manualAssignFromTasks(${row.taskId})">
+                    Assign Manually
+                </button>
+            </div>
+
+            <div class="manual-assign-note">
+                Select a team member to resolve manual review.
+            </div>
+        `;
+    }
+
+    async function manualAssignFromTasks(taskId) {
+        const select = document.getElementById(`task-manual-member-${taskId}`);
+        const resultBox = document.getElementById("allocation-result");
+
+        if (!select || !select.value) {
+            resultBox.innerHTML = "<p class='error'>Please select a team member before assigning manually.</p>";
+            return;
+        }
+
+        const confirmed = confirm(`Assign task ID ${taskId} to the selected team member?`);
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await fetch("/assignments/manual-assign", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    task_id: Number(taskId),
+                    team_member_id: Number(select.value)
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                resultBox.innerHTML = `
+                    <div class="allocation-card danger">
+                        <h3>Manual assignment failed</h3>
+                        <p>${escapeHtml(result.detail || result.message || "Failed to assign task manually.")}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            resultBox.innerHTML = `
+                <div class="allocation-card success">
+                    <div class="allocation-header">
+                        <div>
+                            <h3>Task assigned manually</h3>
+                            <p>Manual review was resolved by the manager.</p>
+                        </div>
+                        <span class="allocation-badge success">Manual Assignment</span>
+                    </div>
+
+                    <div class="allocation-meta">
+                        <div class="allocation-meta-item">
+                            <span>Task ID</span>
+                            <strong>${escapeHtml(taskId)}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Assigned To</span>
+                            <strong>${escapeHtml(result.team_member_name || "Selected member")}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Result</span>
+                            <strong>assigned</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            await loadTasks();
+        } catch (error) {
+            resultBox.innerHTML = "<p class='error'>Error while assigning task manually.</p>";
+        }
     }
 
     function selectTaskForAllocation(taskId) {
@@ -899,23 +1427,11 @@
             }
 
             if (!result.best_candidate) {
-                resultBox.innerHTML = `
-                    <h3>No suitable candidate found</h3>
-                    <p>The system calculated candidate scores, but no candidate passed the allocation threshold.</p>
-                    <pre>${JSON.stringify(result.candidate_scores, null, 2)}</pre>
-                `;
+                resultBox.innerHTML = renderNoSuitableCandidate(result);
                 return;
             }
 
-            resultBox.innerHTML = `
-                <h3>Best Candidate</h3>
-                <p><strong>Task:</strong> ${escapeHtml(result.task_title)}</p>
-                <p><strong>Member:</strong> ${escapeHtml(result.best_candidate.team_member_name)}</p>
-                <p><strong>Role:</strong> ${escapeHtml(result.best_candidate.role)}</p>
-                <p><strong>Score:</strong> ${escapeHtml(result.best_candidate.score)}</p>
-                <p><strong>Explanation:</strong> ${escapeHtml(result.best_candidate.explanation)}</p>
-                <pre>${JSON.stringify(result.best_candidate.score_breakdown, null, 2)}</pre>
-            `;
+            resultBox.innerHTML = renderBestCandidateResult(result);
         } catch (error) {
             resultBox.innerHTML = "<p class='error'>Error while previewing allocation.</p>";
         }
@@ -938,21 +1454,52 @@
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                resultBox.innerHTML = `
-                    <h3 class="error">Allocation failed</h3>
-                    <pre>${JSON.stringify(result, null, 2)}</pre>
-                `;
+                resultBox.innerHTML = renderAutoAllocationFailure(result);
+                await loadTasks();
                 return;
             }
 
             resultBox.innerHTML = `
-                <h3 class="success">Task allocated successfully</h3>
-                <p><strong>Assignment ID:</strong> ${result.assignment.id}</p>
-                <p><strong>Task ID:</strong> ${result.assignment.task_id}</p>
-                <p><strong>Team Member ID:</strong> ${result.assignment.team_member_id}</p>
-                <p><strong>Score:</strong> ${result.assignment.score_at_assignment}</p>
-                <p><strong>Status:</strong> ${escapeHtml(result.assignment.status)}</p>
-                <p><strong>Explanation:</strong> ${escapeHtml(result.selected_candidate_explanation)}</p>
+                <div class="allocation-card success">
+                    <div class="allocation-header">
+                        <div>
+                            <h3>Task allocated successfully</h3>
+                            <p>The task passed the scoring threshold and was assigned automatically.</p>
+                        </div>
+                        <span class="allocation-badge success">Assigned</span>
+                    </div>
+
+                    <div class="allocation-meta">
+                        <div class="allocation-meta-item">
+                            <span>Assignment ID</span>
+                            <strong>${escapeHtml(result.assignment.id)}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Task ID</span>
+                            <strong>${escapeHtml(result.assignment.task_id)}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Team Member ID</span>
+                            <strong>${escapeHtml(result.assignment.team_member_id)}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Score</span>
+                            <strong>${escapeHtml(formatNumber(result.assignment.score_at_assignment))}</strong>
+                        </div>
+
+                        <div class="allocation-meta-item">
+                            <span>Status</span>
+                            <strong>${escapeHtml(result.assignment.status)}</strong>
+                        </div>
+                    </div>
+
+                    <div class="allocation-reason">
+                        <strong>Explanation:</strong> ${escapeHtml(result.selected_candidate_explanation || "No explanation provided.")}
+                    </div>
+                </div>
             `;
 
             await loadTasks();
