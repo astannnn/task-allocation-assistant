@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -6,12 +7,17 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 
+
 from app.database import Base, engine, get_db
 from app.services.scheduler_service import start_scheduler, shutdown_scheduler
 from app.services.scheduling_policy_service import (
     get_active_policy,
     activate_policy,
     normalize_policy_weights,
+)
+from app.services.task_lifecycle_service import (
+    change_task_status,
+    InvalidTaskStatusTransitionError,
 )
 from app import models
 from app.auth import hash_password, verify_password
@@ -31,6 +37,14 @@ from app.routers import (
 
 Base.metadata.create_all(bind=engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    try:
+        yield
+    finally:
+        shutdown_scheduler()
+
 app = FastAPI(
     title="Task Allocation Assistant",
     description="A decision-support assistant for team task allocation and project management.",
@@ -38,6 +52,7 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -326,18 +341,19 @@ def update_my_task_status(
     if new_status not in allowed_statuses:
         return RedirectResponse(url="/my-tasks", status_code=303)
 
-    current_task_status = assignment.task.status
+    if not assignment.task:
+        return RedirectResponse(url="/my-tasks", status_code=303)
 
-    if current_task_status == "assigned" and new_status == "in_progress":
-        assignment.task.status = "in_progress"
+    try:
+        change_task_status(db, assignment.task.id, new_status)
+    except InvalidTaskStatusTransitionError:
+        return RedirectResponse(url="/my-tasks", status_code=303)
+
+    if new_status == "in_progress":
         assignment.status = "active"
 
-    elif current_task_status == "in_progress" and new_status == "completed":
-        assignment.task.status = "completed"
+    elif new_status == "completed":
         assignment.status = "completed"
-
-    else:
-        return RedirectResponse(url="/my-tasks", status_code=303)
 
     db.commit()
 
@@ -1037,15 +1053,3 @@ def health_check():
         "status": "ok",
         "database": "connected"
     }
-
-
-# ---------- Scheduler Events ----------
-
-@app.on_event("startup")
-def on_startup():
-    start_scheduler()
-
-
-@app.on_event("shutdown")
-def on_shutdown():
-    shutdown_scheduler()

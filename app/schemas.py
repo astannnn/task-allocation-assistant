@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 # ---------- Project Schemas ----------
@@ -21,8 +21,7 @@ class ProjectResponse(ProjectBase):
     created_at: datetime
     created_by: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Team Member Schemas ----------
@@ -47,8 +46,7 @@ class TeamMemberResponse(TeamMemberBase):
     project_id: int
     user_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Skill Schemas ----------
@@ -66,8 +64,7 @@ class SkillCreate(SkillBase):
 class SkillResponse(SkillBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Task Schemas ----------
@@ -90,8 +87,7 @@ class TaskResponse(TaskBase):
     project_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Team Member Skill Schemas ----------
@@ -108,8 +104,7 @@ class TeamMemberSkillResponse(BaseModel):
     skill_id: int
     level: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Task Required Skill Schemas ----------
@@ -126,8 +121,7 @@ class TaskRequiredSkillResponse(BaseModel):
     skill_id: int
     required_level: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Assignment Schemas ----------
@@ -139,8 +133,7 @@ class AssignmentResponse(BaseModel):
     status: str
     score_at_assignment: Optional[float] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- User Schemas ----------
@@ -163,8 +156,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Scheduling Policy Schemas ----------
@@ -215,5 +207,4 @@ class SchedulingPolicyResponse(SchedulingPolicyBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
