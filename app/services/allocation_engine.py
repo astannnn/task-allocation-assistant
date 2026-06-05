@@ -7,14 +7,13 @@ from app.services.profile_scoring import (
     get_required_skill_details,
     get_member_skill_details,
 )
-
 from app.services.notification_service import (
     create_task_assignment_notification,
     create_manual_review_notification,
 )
-
 from app.services.taxonomy import explain_taxonomy_match
 from app.services.scheduling_policy_service import get_active_policy
+from app.services.allocation_decision_service import record_allocation_decision
 
 
 def close_existing_active_assignments(task_id: int, db: Session):
@@ -72,7 +71,8 @@ def find_best_team_member_for_task(task_id: int, db: Session):
         )
 
         workload_value = member.workload or 0.0
-        violates_workload_constraint = workload_value > active_policy.max_workload_allowed
+        max_workload_allowed = active_policy.max_workload_allowed or 0.90
+        violates_workload_constraint = workload_value > max_workload_allowed
 
         candidate_scores.append({
             "team_member_id": member.id,
@@ -104,8 +104,10 @@ def find_best_team_member_for_task(task_id: int, db: Session):
     if not candidate_scores:
         return None, []
 
+    minimum_score_threshold = active_policy.minimum_score_threshold or 0.50
+
     for candidate in candidate_scores:
-        score_is_acceptable = candidate["score"] >= active_policy.minimum_score_threshold
+        score_is_acceptable = candidate["score"] >= minimum_score_threshold
         workload_is_acceptable = not candidate["violates_workload_constraint"]
 
         if score_is_acceptable and workload_is_acceptable:
@@ -129,6 +131,26 @@ def automatically_allocate_task(task_id: int, db: Session):
 
     if not best_candidate:
         task.status = "manual_review"
+
+        top_candidate = candidate_scores[0] if candidate_scores else None
+
+        record_allocation_decision(
+            db=db,
+            task_id=task.id,
+            decision_type="manual_review",
+            selected_team_member_id=None,
+            final_score=top_candidate["score"] if top_candidate else None,
+            score_breakdown={
+                "candidate_scores": candidate_scores,
+                "top_candidate": top_candidate,
+            },
+            reason="No suitable team member found during automatic allocation.",
+            policy_name=(
+                top_candidate["policy_used"]["policy_name"]
+                if top_candidate and "policy_used" in top_candidate
+                else None
+            ),
+        )
 
         create_manual_review_notification(
             db=db,
@@ -155,6 +177,17 @@ def automatically_allocate_task(task_id: int, db: Session):
         team_member_id=best_candidate["team_member_id"],
         status="active",
         score_at_assignment=best_candidate["score"],
+    )
+
+    record_allocation_decision(
+        db=db,
+        task_id=task.id,
+        decision_type="automatic_assignment",
+        selected_team_member_id=best_candidate["team_member_id"],
+        final_score=best_candidate["score"],
+        score_breakdown=best_candidate.get("score_breakdown"),
+        reason=best_candidate.get("explanation"),
+        policy_name=best_candidate.get("policy_used", {}).get("policy_name"),
     )
 
     assigned_member = db.query(models.TeamMember).filter(

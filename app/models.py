@@ -132,6 +132,22 @@ class Assignment(Base):
     task = relationship("Task", back_populates="assignments")
     team_member = relationship("TeamMember", back_populates="assignments")
 
+class AllocationDecision(Base):
+    __tablename__ = "allocation_decisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    selected_team_member_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+
+    decision_type = Column(String, nullable=False)  # automatic_assignment, manual_review, reassignment
+    final_score = Column(Float, nullable=True)
+
+    score_breakdown_json = Column(Text, nullable=True)
+    reason = Column(Text, nullable=True)
+    policy_name = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Notification(Base):
     __tablename__ = "notifications"
