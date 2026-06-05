@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
+from app.services.team_member_lifecycle_service import delete_team_member_safely
 
 
 router = APIRouter(
@@ -70,17 +71,15 @@ def get_team_members_by_project(project_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{team_member_id}")
 def delete_team_member(team_member_id: int, db: Session = Depends(get_db)):
-    team_member = db.query(models.TeamMember).filter(
-        models.TeamMember.id == team_member_id
-    ).first()
+    result = delete_team_member_safely(
+        team_member_id=team_member_id,
+        db=db,
+    )
 
-    if not team_member:
+    if result is None:
         raise HTTPException(status_code=404, detail="Team member not found")
 
-    db.delete(team_member)
-    db.commit()
-
-    return {"message": "Team member deleted successfully"}
+    return result
 
 @router.post("/skills/", response_model=schemas.TeamMemberSkillResponse)
 def add_skill_to_team_member(

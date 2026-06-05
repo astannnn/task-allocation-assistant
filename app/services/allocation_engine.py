@@ -71,6 +71,9 @@ def find_best_team_member_for_task(task_id: int, db: Session):
             member_skills=member_skill_names,
         )
 
+        workload_value = member.workload or 0.0
+        violates_workload_constraint = workload_value > active_policy.max_workload_allowed
+
         candidate_scores.append({
             "team_member_id": member.id,
             "team_member_name": member.name,
@@ -86,6 +89,7 @@ def find_best_team_member_for_task(task_id: int, db: Session):
             "required_skills": required_skill_details,
             "member_skills": member_skill_details,
             "taxonomy_explanation": taxonomy_explanation,
+            "violates_workload_constraint": violates_workload_constraint,
             "policy_used": {
                 "policy_id": active_policy.id,
                 "policy_name": active_policy.name,
@@ -100,12 +104,14 @@ def find_best_team_member_for_task(task_id: int, db: Session):
     if not candidate_scores:
         return None, []
 
-    best_candidate = candidate_scores[0]
+    for candidate in candidate_scores:
+        score_is_acceptable = candidate["score"] >= active_policy.minimum_score_threshold
+        workload_is_acceptable = not candidate["violates_workload_constraint"]
 
-    if best_candidate["score"] < active_policy.minimum_score_threshold:
-        return None, candidate_scores
+        if score_is_acceptable and workload_is_acceptable:
+            return candidate, candidate_scores
 
-    return best_candidate, candidate_scores
+    return None, candidate_scores
 
 
 def automatically_allocate_task(task_id: int, db: Session):
